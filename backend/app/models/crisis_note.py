@@ -3,7 +3,7 @@ from __future__ import annotations
 import enum
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Index, String, Text, text
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Index, String, Text, text
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy import func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -27,6 +27,16 @@ class Character(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
+    # Home region (free text for now). Several delegates can share a region.
+    region: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # Fall of Qing indicators (0-5 scale; 2.5 is "average" and gives efficiency 1.0).
+    legitimacy: Mapped[float] = mapped_column(Float, nullable=False, default=2.5, server_default=text("2.5"))
+    military: Mapped[float] = mapped_column(Float, nullable=False, default=2.5, server_default=text("2.5"))
+    economics: Mapped[float] = mapped_column(Float, nullable=False, default=2.5, server_default=text("2.5"))
+    # Backroom scratchpad (e.g. notes on absolute strength).
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # What the delegate-facing map shows. Null until staff publish a calculation.
+    published_efficiency: Mapped[float | None] = mapped_column(Float, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

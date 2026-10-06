@@ -5,6 +5,7 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.public import router as public_router
 from app.api.router import api_router
 from app.config import settings
 
@@ -28,7 +29,12 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+
     app.include_router(api_router)
+
+    # Delegate-facing read-only endpoints; intentionally not behind the admin token.
+    app.include_router(public_router)
+
     return app
 
 

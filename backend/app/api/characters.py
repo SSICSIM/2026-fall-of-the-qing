@@ -25,7 +25,7 @@ def create_character(body: CharacterCreate, db: Session = Depends(get_db)) -> Ch
     existing = db.query(Character).filter(Character.name == body.name).first()
     if existing:
         raise HTTPException(status_code=409, detail="A character with that name already exists.")
-    character = Character(name=body.name)
+    character = Character(name=body.name, region=body.region)
     db.add(character)
     try:
         db.commit()

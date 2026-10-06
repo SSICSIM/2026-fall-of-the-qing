@@ -10,11 +10,13 @@ export type NoteType = "PRIVATE_DIRECTIVE" | "PUBLIC_DIRECTIVE";
 export interface CharacterResponse {
   id: number;
   name: string;
+  region?: string | null;
   created_at: string;
 }
 
 export interface CharacterCreate {
   name: string;
+  region?: string | null;
 }
 
 export interface BulkUploadResult {
@@ -119,4 +121,70 @@ export interface AnalyticsSummary {
   priority_distribution: PriorityCount[];
   private_directive_count: number;
   public_directive_count: number;
+}
+
+// ── Fall of Qing: indicators, calculator, history ────────────────────────────
+
+export type Indicator = "LEGITIMACY" | "MILITARY" | "ECONOMICS";
+
+export interface IndicatorRow {
+  character_id: number;
+  name: string;
+  region: string | null;
+  legitimacy: number;
+  military: number;
+  economics: number;
+  notes: string | null;
+  efficiency: number; // all three indicators, current stored values
+  published_efficiency: number | null; // what the delegate-facing map shows now
+}
+
+export interface ScoreEdit {
+  character_id: number;
+  indicator: Indicator;
+  mode: "set" | "add";
+  value: number;
+}
+
+export interface ActionResponse {
+  id: number;
+  kind: "SCORE_EDIT" | "PUBLISH";
+  payload: Record<string, unknown>;
+  note: string | null;
+  created_by: string | null;
+  created_at: string;
+  reverted_at: string | null;
+}
+
+export interface RunResultRow {
+  character_id: number;
+  name: string;
+  efficiency: number;
+  inputs: Record<string, number>;
+}
+
+export interface RunResponse {
+  id: number;
+  character_ids: number[];
+  indicators: Indicator[];
+  results: RunResultRow[];
+  average: number;
+  band_label: string;
+  tip: string;
+  outcomes: string[];
+  status: "DRAFT" | "PUBLISHED" | "REVERTED";
+  created_at: string;
+  published_at: string | null;
+}
+
+export interface DelegateGroup {
+  id: number;
+  name: string;
+  character_ids: number[];
+}
+
+export interface PublicScore {
+  character_id: number;
+  name: string;
+  efficiency: number;
 }
