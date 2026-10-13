@@ -46,8 +46,9 @@ Use a **different** `ADMIN_API_TOKEN` and `NEXTAUTH_SECRET` for each mechanic.
 2. Copy the **Session pooler** string (port **5432**).
    - Don't use *Direct connection*. It's IPv6-only, and Render's free plan
      can't reach it.
-   - Don't use *Transaction pooler* (port 6543). It ignores the `search_path`
-     option that keeps this mechanic in its own schema.
+   - Don't use *Transaction pooler* (port 6543). It doesn't keep per-connection
+     settings, and the app pins each connection to its schema with
+     `SET search_path`.
 3. Add `+psycopg2` to the scheme and `?sslmode=require` to the end:
 
    ```

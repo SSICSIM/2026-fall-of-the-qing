@@ -7,7 +7,7 @@ from sqlalchemy import engine_from_config, pool, text
 
 from app import models  # noqa: F401
 from app.config import settings
-from app.database import Base, schema_connect_args
+from app.database import Base, pin_search_path
 
 # Alembic Config object
 config = context.config
@@ -44,7 +44,6 @@ def run_migrations_online() -> None:
         configuration,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
-        connect_args=schema_connect_args(),
     )
 
     schema = settings.db_schema or None
@@ -52,6 +51,7 @@ def run_migrations_online() -> None:
         if schema:
             connection.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{schema}"'))
             connection.commit()
+            pin_search_path(connection.connection.dbapi_connection, schema)
 
         context.configure(
             connection=connection,
