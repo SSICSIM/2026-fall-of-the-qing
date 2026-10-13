@@ -15,6 +15,12 @@ export interface CharacterResponse {
 
 export interface CharacterCreate {
   name: string;
+  /** Home provinces: unclaimed ones become theirs, the rest are shared. */
+  province_ids?: string[];
+  faction_id?: number;
+  /** Initial pin position; omit both to leave them off the map. */
+  x?: number;
+  y?: number;
 }
 
 export interface BulkUploadResult {
@@ -119,4 +125,273 @@ export interface AnalyticsSummary {
   priority_distribution: PriorityCount[];
   private_directive_count: number;
   public_directive_count: number;
+}
+
+// ── Delegates & scores ───────────────────────────────────────────────────────
+
+export type Indicator = "reputation" | "economics" | "military";
+
+export interface DelegateResponse {
+  id: number;
+  name: string;
+  reputation: number;
+  economics: number;
+  military: number;
+  published_efficiency: number | null;
+  /** Map colour: the faction's when it has one, else the character's own. */
+  color: string | null;
+  faction_id: number | null;
+  /** The province they're based in; auto-placement puts their pin there. */
+  home_province_id: string | null;
+  staff_notes: string | null;
+  /** Pin position in map units; null while off the map. */
+  x: number | null;
+  y: number | null;
+}
+
+export interface ScoreUpdate {
+  character_id: number;
+  reputation?: number;
+  economics?: number;
+  military?: number;
+}
+
+export interface BulkScoreUpdate {
+  updates: ScoreUpdate[];
+  reason?: string;
+  crisis_note_id?: number;
+}
+
+export interface DelegateProfileUpdate {
+  color?: string | null;
+  staff_notes?: string | null;
+  faction_id?: number | null;
+  home_province_id?: string | null;
+}
+
+/** A clique of characters; its members share its colour on the map. */
+export interface FactionResponse {
+  id: number;
+  name: string;
+  color: string | null;
+}
+
+export interface FactionCreate {
+  name: string;
+  color?: string | null;
+}
+
+// ── Calculator ───────────────────────────────────────────────────────────────
+
+export interface EfficiencyRequest {
+  character_ids: number[];
+  indicators?: Indicator[];
+}
+
+export interface PublishRequest extends EfficiencyRequest {
+  reason?: string;
+  crisis_note_id?: number;
+}
+
+export type BandTone = "bad" | "neutral" | "good";
+
+export interface BandResponse {
+  key: string;
+  label: string;
+  tone: BandTone;
+  tips: string[];
+}
+
+export interface EfficiencyResponse {
+  indicators: Indicator[];
+  efficiency: number;
+  band: BandResponse;
+  delegates: { character_id: number; name: string; efficiency: number }[];
+}
+
+export interface PresetResponse {
+  id: number;
+  name: string;
+  character_ids: number[];
+}
+
+export interface PresetCreate {
+  name: string;
+  character_ids: number[];
+}
+
+// ── History ──────────────────────────────────────────────────────────────────
+
+export type HistoryKind = "SCORE_EDIT" | "PUBLISH" | "INVASION" | "PROVINCE_EDIT" | "MOVE" | "BORDER";
+
+export interface HistoryBatchResponse {
+  id: number;
+  kind: HistoryKind;
+  summary: string;
+  reason: string | null;
+  crisis_note_id: number | null;
+  reverted: boolean;
+  created_at: string;
+  entries: {
+    target_type: "character" | "province";
+    target_id: string;
+    field: string;
+    old_value: unknown;
+    new_value: unknown;
+  }[];
+}
+
+// ── Map ──────────────────────────────────────────────────────────────────────
+
+export type AnnotationKind = "LINE" | "PIN";
+
+export interface ProvinceResponse {
+  id: string;
+  controller_id: number | null;
+  /** Characters sharing the province with the controller (a clique's region). */
+  co_holder_ids: number[];
+  occupier_id: number | null;
+  /** Another delegate disputing this province (drawn in both colours). */
+  contested_by_id: number | null;
+  /** Redrawn outline in map units; null = the original border. */
+  shape: [number, number][] | null;
+}
+
+export interface ProvinceShapeUpdate {
+  shape: [number, number][] | null;
+  /** Neighbours whose border moved with it, saved in the same undo step. */
+  neighbour_shapes?: Record<string, [number, number][]>;
+  crisis_note_id?: number;
+  reason?: string;
+}
+
+export interface ProvinceUpdate {
+  controller_id?: number | null;
+  co_holder_ids?: number[];
+  occupier_id?: number | null;
+  contested_by_id?: number | null;
+  reason?: string;
+}
+
+export interface AnnotationResponse {
+  id: number;
+  kind: AnnotationKind;
+  points: [number, number][];
+  label: string | null;
+  color: string | null;
+  dashed: boolean;
+  crisis_note_id: number | null;
+  created_at: string;
+}
+
+export interface AnnotationCreate {
+  kind: AnnotationKind;
+  points: [number, number][];
+  label?: string;
+  color?: string;
+  dashed?: boolean;
+  crisis_note_id?: number;
+}
+
+export type ConflictStatus = "ONGOING" | "RESOLVED";
+
+export interface ConflictResponse {
+  id: number;
+  name: string;
+  status: ConflictStatus;
+  parties: { id: number; name: string }[];
+  winner_id: number | null;
+  outcome_summary: string | null;
+  crisis_note_id: number | null;
+  created_at: string;
+  resolved_at: string | null;
+}
+
+export interface ConflictCreate {
+  name: string;
+  party_ids: number[];
+  crisis_note_id?: number;
+}
+
+export interface ConflictResolve {
+  winner_id?: number | null;
+  outcome_summary?: string;
+}
+
+export type TerritoryStatus = "ANNEXED" | "OCCUPIED" | "CONTESTED";
+
+/** Part of the map taken in an invasion (a drawn area). */
+export interface TerritoryResponse {
+  id: number;
+  holder_id: number;
+  defender_id: number | null;
+  province_id: string | null;
+  status: TerritoryStatus;
+  polygon: [number, number][];
+  crisis_note_id: number | null;
+  created_at: string;
+}
+
+export interface TerritoryCreate {
+  holder_id: number;
+  defender_id?: number | null;
+  province_id?: string | null;
+  status?: TerritoryStatus;
+  polygon: [number, number][];
+  crisis_note_id?: number | null;
+  reason?: string;
+}
+
+export interface TerritoryUpdate {
+  status?: TerritoryStatus;
+  holder_id?: number;
+  reason?: string;
+}
+
+export interface MapStateResponse {
+  provinces: ProvinceResponse[];
+  delegates: DelegateResponse[];
+  factions: FactionResponse[];
+  annotations: AnnotationResponse[];
+  conflicts: ConflictResponse[];
+  territories: TerritoryResponse[];
+}
+
+export interface ScoreDeltas {
+  reputation?: number;
+  economics?: number;
+  military?: number;
+}
+
+export type InvasionMode = "OCCUPY" | "ANNEX" | "CONTEST";
+
+export interface InvasionRequest {
+  attacker_id: number;
+  /** Whole provinces taken; with `area`, just the province it was cut from. */
+  province_ids: string[];
+  /** Outline of only the land taken (part of a province). */
+  area?: [number, number][];
+  crisis_note_id: number;
+  mode: InvasionMode;
+  attacker_deltas?: ScoreDeltas;
+  defender_id?: number;
+  defender_deltas?: ScoreDeltas;
+  reason?: string;
+}
+
+export interface BandSetting {
+  key?: string;
+  label: string;
+  tone: BandTone;
+  min_rating: number;
+  tips: string[];
+}
+
+export interface FormulaSettings {
+  midpoint: number;
+  bands: BandSetting[];
+}
+
+export interface FormulaResponse extends FormulaSettings {
+  is_default: boolean;
 }

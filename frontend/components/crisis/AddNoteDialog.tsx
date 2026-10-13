@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -21,12 +21,16 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useCharacters } from "@/hooks/useCharacters";
 import { useCreateNote } from "@/hooks/useCrisisNotes";
-import type { NoteType, Priority } from "@/types/api";
+import type { CrisisNoteResponse, NoteType, Priority } from "@/types/api";
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   activePeriodId: number;
+  /** Prefill the character and/or type, e.g. "new directive for this delegate". */
+  defaultCharacterId?: number;
+  defaultNoteType?: NoteType;
+  onCreated?: (note: CrisisNoteResponse) => void;
 }
 
 const EMPTY = {
@@ -38,8 +42,24 @@ const EMPTY = {
   note_type: "" as NoteType | "",
 };
 
-export function AddNoteDialog({ open, onOpenChange, activePeriodId }: Props) {
+export function AddNoteDialog({
+  open,
+  onOpenChange,
+  activePeriodId,
+  defaultCharacterId,
+  defaultNoteType,
+  onCreated,
+}: Props) {
   const [form, setForm] = useState(EMPTY);
+
+  useEffect(() => {
+    if (!open) return;
+    setForm((f) => ({
+      ...f,
+      character_id: defaultCharacterId != null ? String(defaultCharacterId) : f.character_id,
+      note_type: defaultNoteType ?? f.note_type,
+    }));
+  }, [open, defaultCharacterId, defaultNoteType]);
   const { data: characters } = useCharacters();
   const { mutate, isPending } = useCreateNote();
 
@@ -61,9 +81,10 @@ export function AddNoteDialog({ open, onOpenChange, activePeriodId }: Props) {
         note_type: form.note_type as NoteType,
       },
       {
-        onSuccess: () => {
+        onSuccess: (note) => {
           setForm(EMPTY);
           onOpenChange(false);
+          onCreated?.(note);
         },
       }
     );
