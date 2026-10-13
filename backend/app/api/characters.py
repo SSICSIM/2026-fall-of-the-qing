@@ -8,9 +8,13 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.api.factions import require_faction
 from app.database import get_db
 from app.models.crisis_note import Character
+from app.models.war_room import HistoryKind, Province
 from app.schemas import BulkUploadResult, CharacterCreate, CharacterResponse
+from app.services.history import Recorder
+from app.services.provinces import PROVINCE_IDS, add_holder, ensure_provinces
 
 router = APIRouter(prefix="/characters", tags=["characters"])
 
@@ -25,8 +29,32 @@ def create_character(body: CharacterCreate, db: Session = Depends(get_db)) -> Ch
     existing = db.query(Character).filter(Character.name == body.name).first()
     if existing:
         raise HTTPException(status_code=409, detail="A character with that name already exists.")
-    character = Character(name=body.name)
+    unknown = [pid for pid in body.province_ids if pid not in PROVINCE_IDS]
+    if unknown:
+        raise HTTPException(status_code=422, detail=f"Unknown province(s): {', '.join(unknown)}.")
+    if (body.x is None) != (body.y is None):
+        raise HTTPException(status_code=422, detail="Give both x and y, or neither.")
+    require_faction(db, body.faction_id)
+    if body.province_ids:
+        ensure_provinces(db)
+    character = Character(
+        name=body.name,
+        faction_id=body.faction_id,
+        home_province_id=body.province_ids[0] if body.province_ids else None,
+        x=round(body.x, 1) if body.x is not None else None,
+        y=round(body.y, 1) if body.y is not None else None,
+    )
     db.add(character)
+    if body.province_ids:
+        db.flush()
+        provinces = {p.id: p for p in ensure_provinces(db)}
+        recorder = Recorder(
+            db,
+            HistoryKind.PROVINCE_EDIT,
+            summary=f"{body.name} added in " + ", ".join(dict.fromkeys(body.province_ids)),
+        )
+        for pid in dict.fromkeys(body.province_ids):
+            add_holder(recorder, provinces[pid], character.id)
     try:
         db.commit()
     except IntegrityError:
@@ -102,5 +130,8 @@ def delete_character(character_id: int, db: Session = Depends(get_db)) -> None:
     character = db.get(Character, character_id)
     if not character:
         raise HTTPException(status_code=404, detail="Character not found.")
+    for province in db.query(Province).all():
+        if character_id in province.co_holder_ids:
+            province.co_holder_ids = [i for i in province.co_holder_ids if i != character_id]
     db.delete(character)
     db.commit()

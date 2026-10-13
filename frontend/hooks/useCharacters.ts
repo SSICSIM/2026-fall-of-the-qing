@@ -19,6 +19,8 @@ export function useCreateCharacter() {
     mutationFn: (body: CharacterCreate) => charactersService.create(body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["characters"] });
+      qc.invalidateQueries({ queryKey: ["delegates"] });
+      qc.invalidateQueries({ queryKey: ["map"] });
       toast.success("Character added.");
     },
     onError: (err: Error) => toast.error(err.message || "Failed to add character."),
@@ -31,6 +33,8 @@ export function useDeleteCharacter() {
     mutationFn: (id: number) => charactersService.delete(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["characters"] });
+      qc.invalidateQueries({ queryKey: ["delegates"] });
+      qc.invalidateQueries({ queryKey: ["map"] });
       toast.success("Character removed.");
     },
     onError: (err: Error) => toast.error(err.message || "Cannot delete character."),
@@ -43,6 +47,8 @@ export function useBulkUploadCharacters() {
     mutationFn: (file: File) => charactersService.bulkUpload(file),
     onSuccess: ({ created, skipped }) => {
       qc.invalidateQueries({ queryKey: ["characters"] });
+      qc.invalidateQueries({ queryKey: ["delegates"] });
+      qc.invalidateQueries({ queryKey: ["map"] });
       toast.success(`Imported ${created} character${created !== 1 ? "s" : ""}${skipped ? `, ${skipped} skipped (duplicate)` : ""}.`);
     },
     onError: (err: Error) => toast.error(err.message || "Upload failed."),
