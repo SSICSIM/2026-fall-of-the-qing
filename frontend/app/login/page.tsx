@@ -7,6 +7,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+// Send people back to the page they were trying to open. Only same-site paths
+// are allowed, so the login page can't be used as an open redirect.
+function safeCallbackUrl(): string {
+  const target = new URLSearchParams(window.location.search).get("callbackUrl");
+  if (!target || !target.startsWith("/") || target.startsWith("//") || target.startsWith("/\\")) {
+    return "/";
+  }
+  return target;
+}
+
 export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState(false);
@@ -21,7 +31,7 @@ export default function LoginPage() {
       redirect: false,
     });
     if (result?.ok && !result?.error) {
-      window.location.href = "/";
+      window.location.href = safeCallbackUrl();
     } else {
       setError(true);
       setLoading(false);

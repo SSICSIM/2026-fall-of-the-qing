@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
+  robots: { index: false, follow: false },
   title: "Base Mechanics",
   description: "Base mechanics template."
 };
