@@ -3,11 +3,11 @@ from __future__ import annotations
 from logging.config import fileConfig
 
 from alembic import context
-from sqlalchemy import engine_from_config, pool
+from sqlalchemy import engine_from_config, pool, text
 
 from app import models  # noqa: F401
 from app.config import settings
-from app.database import Base
+from app.database import Base, schema_connect_args
 
 # Alembic Config object
 config = context.config
@@ -44,13 +44,21 @@ def run_migrations_online() -> None:
         configuration,
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
+        connect_args=schema_connect_args(),
     )
 
+    schema = settings.db_schema or None
     with connectable.connect() as connection:
+        if schema:
+            connection.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{schema}"'))
+            connection.commit()
+
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
             compare_type=True,
+            # Each mechanic keeps its own alembic_version inside its schema.
+            version_table_schema=schema,
         )
 
         with context.begin_transaction():

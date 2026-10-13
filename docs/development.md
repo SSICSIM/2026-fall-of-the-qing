@@ -55,6 +55,7 @@ server-side, in the Next.js proxy route.
 | `API_CORS_ORIGINS` | backend | Comma-separated list of origins allowed to call the API directly (cross-origin). Not needed for the app itself (browser calls are same-origin through the proxy) — relevant if you hit the API directly from another host during development. |
 | `ENVIRONMENT` | backend | `development` (default) exposes `/docs`, `/redoc`, `/openapi.json`. Set to `production` to disable them. |
 | `ADMIN_API_TOKEN` | backend + frontend | Shared secret. The frontend's proxy route (`frontend/app/api/backend/[...path]/route.ts`) sends it as the `X-Admin-Token` header on every request it forwards; the backend's `require_admin_token` dependency checks it. **Blank disables the check** — fine for local dev, but set it to a real value before deploying anywhere reachable outside your own network. |
+| `DB_SCHEMA` | backend | Postgres schema this mechanic's tables (and `alembic_version`) live in. **Leave blank locally.** Production sets it so all mechanics can share the admin portal's Supabase database without table-name collisions — see [deployment.md](deployment.md). |
 
 ### Postgres (docker-compose only)
 

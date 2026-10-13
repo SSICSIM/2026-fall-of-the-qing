@@ -1,0 +1,74 @@
+name: Deploy backend
+
+# On every push to main that touches the backend:
+#   1. Runs backend tests (if any) and checks the app imports
+#   2. Applies Alembic migrations to this mechanic's schema in Supabase
+#   3. Triggers the Render deploy hook
+# A failure at any step stops the deploy. Render's free plan has no
+# pre-deploy command, so migrations run here instead. See docs/deployment.md.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - ".github/workflows/deploy-backend.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-backend
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      DB_SCHEMA: fall_of_the_qing
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements*.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Run tests
+        if: hashFiles('backend/tests/**/*.py') != ''
+        run: python -m pytest tests -q
+
+      - name: Check the app imports
+        run: python -c "from app.main import app"
+
+      - name: Check deploy secrets
+        id: secrets
+        env:
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+          RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$DATABASE_URL" ] || [ -z "$RENDER_DEPLOY_HOOK" ]; then
+            echo "::warning::PRODUCTION_DATABASE_URL or RENDER_DEPLOY_HOOK is not set; skipping migrate and deploy. See docs/deployment.md."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run migrations
+        if: steps.secrets.outputs.ready == 'true'
+        env:
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+        run: alembic -c alembic.ini upgrade heads
+
+      - name: Trigger Render deploy
+        if: steps.secrets.outputs.ready == 'true'
+        env:
+          RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+        run: curl -fsS -X POST "$RENDER_DEPLOY_HOOK" > /dev/null
