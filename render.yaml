@@ -1,0 +1,24 @@
+# Render Blueprint for this mechanic's backend (free plan).
+# Deploys are triggered by .github/workflows/deploy-backend.yml after
+# migrations succeed, so auto-deploy is off. Full setup: docs/deployment.md
+services:
+  - type: web
+    name: fall-of-the-qing-api
+    runtime: docker
+    plan: free
+    # Pick the region closest to the Supabase project (can't be changed later).
+    region: virginia
+    branch: main
+    dockerContext: ./backend
+    dockerfilePath: ./backend/Dockerfile
+    healthCheckPath: /healthz
+    autoDeployTrigger: "off"
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: DB_SCHEMA
+        value: fall_of_the_qing
+      - key: DATABASE_URL
+        sync: false
+      - key: ADMIN_API_TOKEN
+        sync: false

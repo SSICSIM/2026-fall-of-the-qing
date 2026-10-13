@@ -26,3 +26,10 @@ docker compose up
 
 See [`docs/environment-setup.md`](docs/deployment.md) for what each
 `.env` variable does, how requests are routed, and common setup mistakes.
+
+## Deploying
+
+Production runs on Vercel (frontend, `https://fall-of-the-qing.ssicsim.ca`), a free Render
+service (backend) and the admin portal's Supabase (schema `fall_of_the_qing`). See
+[docs/deployment.md](docs/deployment.md) for setup and
+[docs/conference-keepalive.md](docs/conference-keepalive.md) for the conference weekend.

@@ -16,6 +16,10 @@ class Settings(BaseSettings):
     api_cors_origins: str = "http://localhost:3000"
     environment: str = "development"
     admin_api_token: str | None = None
+    # Postgres schema this mechanic's tables live in. Unset locally (tables go
+    # in the default schema); set in production so several mechanics can share
+    # one database without their tables colliding. See docs/deployment.md.
+    db_schema: str | None = None
 
     @property
     def cors_origins_list(self) -> list[str]:
