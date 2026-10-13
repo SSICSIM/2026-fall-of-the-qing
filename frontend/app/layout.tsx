@@ -13,8 +13,11 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
   robots: { index: false, follow: false },
-  title: "Base Mechanics",
-  description: "Base mechanics template."
+  // Tab title is the committee name; pages with their own title show as
+  // "<page> | <committee>".
+  title: { default: "Fall of the Qing: Five Coloured Banners Over Jing", template: "%s | Fall of the Qing: Five Coloured Banners Over Jing" },
+  description: "Fall of the Qing: Five Coloured Banners Over Jing crisis staff workspace.",
+  icons: { icon: "/favicon.png", apple: "/favicon-apple.png" },
 };
 
 export default function RootLayout(props: { children: React.ReactNode }) {
