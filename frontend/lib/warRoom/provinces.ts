@@ -1,4 +1,7 @@
 import geometry from "@/lib/map/qingGeometry.json";
+import type { ProvinceResponse } from "@/types/api";
+
+import { polygonCentroid, polylinePath, type Pt } from "./geometry";
 
 /** Foreign-held cities, lettered as on the guides' map. */
 export type CityHolder = "L" | "G" | "P" | "J";
@@ -68,3 +71,33 @@ export const LABEL_STYLE: Record<string, { dx?: number; dy?: number; rotate?: nu
   guangxi: { size: 10 },
   guangdong: { rotate: -18, size: 10, dy: -4, dx: 6 },
 };
+
+export interface MapProvince extends ProvinceShape {
+  /** The saved outline when a province was redrawn or added by staff. */
+  custom: Pt[] | null;
+}
+
+/** Every province on the map with its current outline: the presets first,
+ * then those staff added. */
+export function mapProvinces(provinces: ProvinceResponse[]): MapProvince[] {
+  const byId = new Map(provinces.map((p) => [p.id, p]));
+  const presets = QING.provinces.map((shape) => {
+    const custom = (byId.get(shape.id)?.shape as Pt[] | null) ?? null;
+    return custom ? withOutline(shape, custom) : { ...shape, custom };
+  });
+  const added = provinces
+    .filter((p) => p.custom && p.shape)
+    .map((p) => withOutline({ id: p.id, name: p.name ?? p.id, d: "", label: [0, 0] }, p.shape as Pt[]));
+  return [...presets, ...added];
+}
+
+function withOutline(shape: ProvinceShape, outline: Pt[]): MapProvince {
+  return { ...shape, d: polylinePath(outline) + "Z", label: polygonCentroid(outline), custom: outline };
+}
+
+/** Province names by id, including those staff added. */
+export function provinceNames(provinces: ProvinceResponse[]): Record<string, string> {
+  const names = { ...PROVINCE_NAMES };
+  for (const p of provinces) if (p.custom && p.shape && p.name) names[p.id] = p.name;
+  return names;
+}

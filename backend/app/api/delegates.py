@@ -16,7 +16,7 @@ from app.schemas import (
 )
 from app.services.efficiency import INDICATORS
 from app.services.history import Recorder
-from app.services.provinces import PROVINCE_IDS, ensure_provinces
+from app.services.provinces import get_province
 
 router = APIRouter(prefix="/delegates", tags=["delegates"])
 
@@ -124,9 +124,8 @@ def update_profile(
     require_faction(db, changes.get("faction_id"))
     home = changes.get("home_province_id")
     if home is not None:
-        if home not in PROVINCE_IDS:
+        if get_province(db, home) is None:
             raise HTTPException(status_code=404, detail=f"Unknown province: {home}.")
-        ensure_provinces(db)
     for field, value in changes.items():
         setattr(character, field, value)
     db.commit()

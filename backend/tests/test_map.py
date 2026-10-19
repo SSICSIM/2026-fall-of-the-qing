@@ -117,6 +117,8 @@ def test_retaking_own_land_lifts_occupation(client, delegates, directive):
     state = client.post("/api/map/invasions", json=body).json()
     assert province(state, "shandong") == {
         "id": "shandong",
+        "name": None,
+        "custom": False,
         "controller_id": yuan.id,
         "co_holder_ids": [],
         "occupier_id": None,

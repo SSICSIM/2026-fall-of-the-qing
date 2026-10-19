@@ -14,7 +14,7 @@ from app.models.crisis_note import Character
 from app.models.war_room import HistoryKind, Province
 from app.schemas import BulkUploadResult, CharacterCreate, CharacterResponse
 from app.services.history import Recorder
-from app.services.provinces import PROVINCE_IDS, add_holder, ensure_provinces
+from app.services.provinces import add_holder, ensure_provinces, find_province, get_province
 
 router = APIRouter(prefix="/characters", tags=["characters"])
 
@@ -29,7 +29,7 @@ def create_character(body: CharacterCreate, db: Session = Depends(get_db)) -> Ch
     existing = db.query(Character).filter(Character.name == body.name).first()
     if existing:
         raise HTTPException(status_code=409, detail="A character with that name already exists.")
-    unknown = [pid for pid in body.province_ids if pid not in PROVINCE_IDS]
+    unknown = [pid for pid in body.province_ids if get_province(db, pid) is None]
     if unknown:
         raise HTTPException(status_code=422, detail=f"Unknown province(s): {', '.join(unknown)}.")
     if (body.x is None) != (body.y is None):
@@ -65,13 +65,29 @@ def create_character(body: CharacterCreate, db: Session = Depends(get_db)) -> Ch
     return character
 
 
+_YES = {"yes", "y", "true", "1", "x", "owns", "own", "owned"}
+
+
+def _cell(value: object) -> str:
+    return str(value).strip() if value is not None else ""
+
+
+def _owns(value: object) -> bool:
+    if isinstance(value, bool):
+        return value
+    return _cell(value).lower() in _YES
+
+
 @router.post("/bulk", response_model=BulkUploadResult)
 async def bulk_upload_characters(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
 ) -> BulkUploadResult:
+    """Import characters. Each row is a name, then optionally their home
+    province (column B, by name or id) and whether they hold it (column C:
+    yes/no)."""
     content = await file.read()
-    names: list[str] = []
+    rows: list[tuple[str, str, bool]] = []
 
     filename = (file.filename or "").lower()
     if filename.endswith(".json"):
@@ -82,9 +98,11 @@ async def bulk_upload_characters(
         if isinstance(data, list):
             for item in data:
                 if isinstance(item, str):
-                    names.append(item)
+                    rows.append((item, "", False))
                 elif isinstance(item, dict) and "name" in item:
-                    names.append(str(item["name"]))
+                    rows.append(
+                        (_cell(item["name"]), _cell(item.get("province")), _owns(item.get("owns")))
+                    )
     elif filename.endswith(".xlsx"):
         try:
             wb = openpyxl.load_workbook(io.BytesIO(content), read_only=True, data_only=True)
@@ -94,24 +112,35 @@ async def bulk_upload_characters(
         if ws is not None:
             for row in ws.iter_rows(values_only=True):
                 if row and row[0] and isinstance(row[0], str):
-                    names.append(row[0].strip())
+                    cells = list(row) + [None, None]
+                    rows.append((row[0].strip(), _cell(cells[1]), _owns(cells[2])))
     else:
         raise HTTPException(status_code=422, detail="Only .json and .xlsx files are supported.")
 
     created = skipped = 0
-    existing_names = {
-        r[0] for r in db.query(Character.name).all()
-    }
-    for name in names:
+    unknown: list[str] = []
+    existing_names = {r[0] for r in db.query(Character.name).all()}
+    recorder: Recorder | None = None
+    for name, province_text, owns in rows:
         name = name.strip()
-        if not name:
-            continue
+        if not name or (not created and not skipped and name.lower() == "name"):
+            continue  # blank row, or the sheet's header
         if name in existing_names:
             skipped += 1
-        else:
-            db.add(Character(name=name))
-            existing_names.add(name)
-            created += 1
+            continue
+        province = find_province(db, province_text) if province_text else None
+        if province_text and province is None:
+            # Usually a header row ("Name | Province | Owns") or a typo.
+            unknown.append(f"{name}: {province_text}")
+        character = Character(name=name, home_province_id=province.id if province else None)
+        db.add(character)
+        existing_names.add(name)
+        created += 1
+        if province is not None and owns:
+            db.flush()
+            if recorder is None:
+                recorder = Recorder(db, HistoryKind.PROVINCE_EDIT, summary="Characters imported")
+            add_holder(recorder, province, character.id)
 
     try:
         db.commit()
@@ -122,7 +151,7 @@ async def bulk_upload_characters(
             status_code=409,
             detail="Some of these characters were just added by someone else. Try again.",
         )
-    return BulkUploadResult(created=created, skipped=skipped)
+    return BulkUploadResult(created=created, skipped=skipped, unknown_provinces=unknown)
 
 
 @router.delete("/{character_id}", status_code=status.HTTP_204_NO_CONTENT, response_model=None)

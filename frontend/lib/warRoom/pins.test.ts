@@ -58,13 +58,13 @@ describe("defaultPinSpot", () => {
   const labels = { zhili: [600, 250] as [number, number] };
 
   it("starts a character in a province they hold", () => {
-    const [x, y] = defaultPinSpot({ id: 2 }, [{ id: "zhili", controller_id: 2, co_holder_ids: [], occupier_id: null, contested_by_id: null, shape: null }], labels, [0, 0]);
+    const [x, y] = defaultPinSpot({ id: 2 }, [{ id: "zhili", controller_id: 2, co_holder_ids: [], occupier_id: null, contested_by_id: null, shape: null, name: null, custom: false }], labels, [0, 0]);
     expect(x).toBe(600);
     expect(y).toBe(236);
   });
 
   it("counts occupied land as held by the occupier", () => {
-    const spot = defaultPinSpot({ id: 3 }, [{ id: "zhili", controller_id: 2, co_holder_ids: [], occupier_id: 3, contested_by_id: null, shape: null }], labels, [0, 0]);
+    const spot = defaultPinSpot({ id: 3 }, [{ id: "zhili", controller_id: 2, co_holder_ids: [], occupier_id: 3, contested_by_id: null, shape: null, name: null, custom: false }], labels, [0, 0]);
     expect(spot[0]).toBe(609);
   });
 
@@ -87,6 +87,8 @@ describe("autoPlace", () => {
     occupier_id: occupier,
     contested_by_id: null,
     shape: null,
+    name: null,
+    custom: false,
   });
   const labels: Record<string, [number, number]> = { zhili: [100, 100], henan: [100, 200], yunnan: [300, 300] };
 

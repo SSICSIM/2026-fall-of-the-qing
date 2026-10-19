@@ -19,6 +19,7 @@ import type {
   MapStateResponse,
   PresetCreate,
   PresetResponse,
+  ProvinceCreate,
   ProvinceResponse,
   ProvinceShapeUpdate,
   ProvinceUpdate,
@@ -61,6 +62,8 @@ export const warRoomService = {
   mapState: () => apiClient.get<MapStateResponse>("/api/map"),
   updateProvince: (id: string, body: ProvinceUpdate) =>
     apiClient.patch<ProvinceResponse>(`/api/map/provinces/${id}`, body),
+  addProvince: (body: ProvinceCreate) => apiClient.post<ProvinceResponse>("/api/map/provinces", body),
+  removeProvince: (id: string) => apiClient.delete<void>(`/api/map/provinces/${id}`),
   redrawProvince: (id: string, body: ProvinceShapeUpdate) =>
     apiClient.put<ProvinceResponse>(`/api/map/provinces/${id}/shape`, body),
   createTerritory: (body: TerritoryCreate) => apiClient.post<TerritoryResponse>("/api/map/territories", body),

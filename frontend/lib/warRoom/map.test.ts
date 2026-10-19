@@ -74,22 +74,22 @@ describe("control", () => {
   const delegates = new Map([1, 2].map((id) => [id, delegate(id)]));
 
   it("conquered land shows the occupier", () => {
-    expect(holderOf({ id: "zhili", controller_id: 1, co_holder_ids: [], occupier_id: 2, contested_by_id: null, shape: null }, delegates)?.id).toBe(2);
-    expect(holderOf({ id: "zhili", controller_id: 1, co_holder_ids: [], occupier_id: null, contested_by_id: null, shape: null }, delegates)?.id).toBe(1);
-    expect(holderOf({ id: "zhili", controller_id: null, co_holder_ids: [], occupier_id: null, contested_by_id: null, shape: null }, delegates)).toBeNull();
+    expect(holderOf({ id: "zhili", controller_id: 1, co_holder_ids: [], occupier_id: 2, contested_by_id: null, shape: null, name: null, custom: false }, delegates)?.id).toBe(2);
+    expect(holderOf({ id: "zhili", controller_id: 1, co_holder_ids: [], occupier_id: null, contested_by_id: null, shape: null, name: null, custom: false }, delegates)?.id).toBe(1);
+    expect(holderOf({ id: "zhili", controller_id: null, co_holder_ids: [], occupier_id: null, contested_by_id: null, shape: null, name: null, custom: false }, delegates)).toBeNull();
   });
 
   it("counts holdings by who actually holds the land", () => {
     const counts = holdingsByDelegate([
-      { id: "a", controller_id: 1, co_holder_ids: [], occupier_id: null, contested_by_id: null, shape: null },
-      { id: "b", controller_id: 1, co_holder_ids: [], occupier_id: 2, contested_by_id: null, shape: null },
-      { id: "c", controller_id: null, co_holder_ids: [], occupier_id: null, contested_by_id: null, shape: null },
+      { id: "a", controller_id: 1, co_holder_ids: [], occupier_id: null, contested_by_id: null, shape: null, name: null, custom: false },
+      { id: "b", controller_id: 1, co_holder_ids: [], occupier_id: 2, contested_by_id: null, shape: null, name: null, custom: false },
+      { id: "c", controller_id: null, co_holder_ids: [], occupier_id: null, contested_by_id: null, shape: null, name: null, custom: false },
     ]);
     expect(Object.fromEntries(counts)).toEqual({ 1: 1, 2: 1 });
   });
 
   it("counts a shared province for every holder, controller first", () => {
-    const shared = { id: "zhili", controller_id: 1, co_holder_ids: [2, 3], occupier_id: null, contested_by_id: null, shape: null };
+    const shared = { id: "zhili", controller_id: 1, co_holder_ids: [2, 3], occupier_id: null, contested_by_id: null, shape: null, name: null, custom: false };
     expect(holderIds(shared)).toEqual([1, 2, 3]);
     expect(Object.fromEntries(holdingsByDelegate([shared]))).toEqual({ 1: 1, 2: 1, 3: 1 });
     expect(provincesOf(3, [shared]).map((p) => p.id)).toEqual(["zhili"]);

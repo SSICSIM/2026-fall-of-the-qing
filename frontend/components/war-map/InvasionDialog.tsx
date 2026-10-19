@@ -18,7 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useNotes } from "@/hooks/useCrisisNotes";
 import { useInvade } from "@/hooks/useWarRoom";
 import { clampScore, INDICATOR_LABELS, INDICATORS } from "@/lib/warRoom/efficiency";
-import { PROVINCE_NAMES } from "@/lib/warRoom/provinces";
+import { provinceNames } from "@/lib/warRoom/provinces";
 import { NewNoteDialog } from "./NewNoteDialog";
 import { cn } from "@/lib/utils";
 import type { DelegateResponse, Indicator, InvasionMode, InvasionRequest, MapStateResponse } from "@/types/api";
@@ -47,6 +47,7 @@ function parseDeltas(d: Deltas) {
 }
 
 export function InvasionDialog({ open, onOpenChange, state, provinceId, attackerFactionId, onDrawArea }: Props) {
+  const names = provinceNames(state.provinces);
   const province = state.provinces.find((p) => p.id === provinceId) ?? null;
   const delegates = state.delegates;
   const [attackerFaction, setAttackerFaction] = useState("");
@@ -231,7 +232,7 @@ export function InvasionDialog({ open, onOpenChange, state, provinceId, attacker
                   [
                     "AREA",
                     "Draw the area taken",
-                    `Click the corners of just the part captured${province ? ` from ${PROVINCE_NAMES[province.id]}` : ""}.`,
+                    `Click the corners of just the part captured${province ? ` from ${names[province.id]}` : ""}.`,
                   ],
                 ] as const
               ).map(([value, label, help]) => (
@@ -254,7 +255,7 @@ export function InvasionDialog({ open, onOpenChange, state, provinceId, attacker
           {!byArea ? (
           <Field label="Provinces">
             <div className="flex flex-wrap gap-1.5">
-              {Object.entries(PROVINCE_NAMES).map(([id, name]) => {
+              {Object.entries(names).map(([id, name]) => {
                 const on = provinceIds.includes(id);
                 const fixed = id === provinceId;
                 return (

@@ -34,9 +34,10 @@ import {
   outlineFromPath,
   outlineFromPoints,
 } from "@/lib/warRoom/outline";
-import { PROVINCE_NAMES, QING } from "@/lib/warRoom/provinces";
+import { provinceNames, QING } from "@/lib/warRoom/provinces";
 import { cn } from "@/lib/utils";
 import type { InvasionRequest, MapStateResponse, TerritoryCreate } from "@/types/api";
+import { AddProvinceDialog } from "./AddProvinceDialog";
 import { BorderDialog } from "./BorderDialog";
 import { DirectivesTab } from "./DirectivesTab";
 import { InvasionDialog } from "./InvasionDialog";
@@ -75,6 +76,7 @@ type MapView = "crisis" | "delegate";
 type Drawing = RedrawState &
   (
     | { purpose: "border" }
+    | { purpose: "province" }
     | { purpose: "invasion"; request: Omit<InvasionRequest, "area"> }
     | { purpose: "territory"; request: Omit<TerritoryCreate, "polygon"> }
   ) & { title: string };
@@ -96,11 +98,13 @@ export function WarMapPage() {
   const [selectedConflict, setSelectedConflict] = useState<number | null>(null);
   const [drawing, setDrawing] = useState<Drawing | null>(null);
   const [confirmingBorder, setConfirmingBorder] = useState(false);
+  const [confirmingProvince, setConfirmingProvince] = useState(false);
   // Give long straight edges a hand-drawn wobble on save (see naturalEdges).
   const [natural, setNatural] = useState(true);
   const moveCharacter = useMoveCharacter();
   const invade = useInvade();
   const createTerritory = useCreateTerritory();
+  const names = provinceNames(state?.provinces ?? []);
 
   const openTab = (t: SidebarTab) => {
     setTab(t);
@@ -119,19 +123,27 @@ export function WarMapPage() {
   const finalPoints = (d: Drawing) => (natural ? naturalEdges(d.points) : d.points);
   // The outline being confirmed, stable while the save dialog is open.
   const borderPoints = useMemo(
-    () => (confirmingBorder && drawing ? (natural ? naturalEdges(drawing.points) : drawing.points) : []),
-    [confirmingBorder, drawing, natural],
+    () =>
+      (confirmingBorder || confirmingProvince) && drawing
+        ? natural
+          ? naturalEdges(drawing.points)
+          : drawing.points
+        : [],
+    [confirmingBorder, confirmingProvince, drawing, natural],
   );
 
   const stopDrawing = () => {
     setDrawing(null);
     setConfirmingBorder(false);
+    setConfirmingProvince(false);
   };
 
   const finishDrawing = () => {
     if (!drawing || drawing.points.length < 3) return;
     if (drawing.purpose === "border") {
       setConfirmingBorder(true);
+    } else if (drawing.purpose === "province") {
+      setConfirmingProvince(true);
     } else if (drawing.purpose === "invasion") {
       invade.mutate({ ...drawing.request, area: finalPoints(drawing) }, { onSuccess: stopDrawing });
     } else {
@@ -155,7 +167,19 @@ export function WarMapPage() {
         provinceId,
         ...(custom ? outlineFromPoints(custom as Pt[]) : outlineFromPath(original)),
         mode: "edit",
-        title: `Redrawing ${PROVINCE_NAMES[provinceId]}`,
+        title: `Redrawing ${names[provinceId]}`,
+      });
+    },
+    onAddProvince: () => {
+      setTool("pan");
+      setSelected(null);
+      setDrawing({
+        purpose: "province",
+        provinceId: null,
+        points: [],
+        handles: [],
+        mode: "draw",
+        title: "New province",
       });
     },
     onDrawTerritory: (request, title) => {
@@ -179,7 +203,7 @@ export function WarMapPage() {
   // Keyboard while drawing: Enter finishes, Backspace removes the last
   // corner, Escape cancels.
   useEffect(() => {
-    if (!drawing || confirmingBorder) return;
+    if (!drawing || confirmingBorder || confirmingProvince) return;
     const onKey = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement)?.closest("input, textarea, [contenteditable]")) return;
       if (e.key === "Enter") finishDrawing();
@@ -379,6 +403,13 @@ export function WarMapPage() {
           )}
 
           <PinDialog point={pinAt} onClose={() => setPinAt(null)} />
+          <AddProvinceDialog
+            open={confirmingProvince && drawing?.purpose === "province"}
+            points={borderPoints}
+            state={state}
+            onSaved={stopDrawing}
+            onClose={() => setConfirmingProvince(false)}
+          />
           <BorderDialog
             provinceId={confirmingBorder && drawing?.purpose === "border" ? drawing.provinceId : null}
             ownerId={
@@ -408,7 +439,7 @@ export function WarMapPage() {
                 handles: [],
                 mode: "draw",
                 request,
-                title: `Area ${attacker} takes${from ? ` from ${PROVINCE_NAMES[from]}` : ""}`,
+                title: `Area ${attacker} takes${from ? ` from ${names[from]}` : ""}`,
               });
             }}
           />
@@ -486,7 +517,7 @@ function DrawingBar({
         </Button>
         <Button size="sm" disabled={corners < 3 || saving} onClick={onFinish} title="Enter">
           <CheckIcon />
-          {drawing.purpose === "border" ? "Finish" : "Save"}
+          {drawing.purpose === "border" || drawing.purpose === "province" ? "Finish" : "Save"}
         </Button>
       </div>
     </div>

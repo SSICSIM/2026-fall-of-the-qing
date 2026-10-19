@@ -84,7 +84,8 @@ def calculate(body: EfficiencyRequest, db: Session = Depends(get_db)) -> Efficie
 
 @router.post("/publish", response_model=list[DelegateResponse])
 def publish(body: PublishRequest, db: Session = Depends(get_db)) -> list[Character]:
-    """Confirm each selected delegate's rating and send it to the map."""
+    """Confirm the rating and send it to the map. A group of delegates all
+    get the group's average, the number the calculator shows."""
     require_note(db, body.crisis_note_id)
     characters = get_characters(db, body.character_ids)
     result = _evaluate(body, characters, load_formula(db))
@@ -96,8 +97,8 @@ def publish(body: PublishRequest, db: Session = Depends(get_db)) -> list[Charact
         reason=body.reason,
         crisis_note_id=body.crisis_note_id,
     )
-    for character, rated in zip(characters, result.delegates):
-        recorder.set(character, "published_efficiency", rated.efficiency)
+    for character in characters:
+        recorder.set(character, "published_efficiency", result.efficiency)
     if not recorder.changed:
         db.rollback()
         return characters

@@ -46,6 +46,8 @@ import {
   useUpdateProvince,
   useUpdateTerritory,
   useUpdateScores,
+  useProvinceNames,
+  useRemoveProvince,
 } from "@/hooks/useWarRoom";
 import { FACTION_PALETTE, factionColor } from "@/lib/warRoom/colors";
 import { holderIds, holderOf, provincesOf } from "@/lib/warRoom/control";
@@ -60,7 +62,7 @@ import {
   INDICATORS,
 } from "@/lib/warRoom/efficiency";
 import { defaultPinSpot } from "@/lib/warRoom/pins";
-import { CITY_HOLDERS, PROVINCE_NAMES, QING, type CityHolder } from "@/lib/warRoom/provinces";
+import { CITY_HOLDERS, mapProvinces, QING, type CityHolder } from "@/lib/warRoom/provinces";
 import { cn } from "@/lib/utils";
 import type {
   BandTone,
@@ -84,6 +86,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { NewNoteDialog } from "./NewNoteDialog";
 import { FormulaEditor } from "./FormulaEditor";
+import { NEW_FACTION, NewFactionField } from "./NewFactionField";
 import { useAutoPlace } from "./useAutoPlace";
 import { EmptyHint, SectionHeading, SettingRow } from "./parts";
 import { PIN_COLORS } from "./PinDialog";
@@ -96,6 +99,8 @@ export interface MapActions {
   onInvade: (options?: { attackerFactionId?: number }) => void;
   /** Edit a province's border by dragging its corners. */
   onRedrawBorder: (provinceId: string) => void;
+  /** Draw a new province on the map. */
+  onAddProvince: () => void;
   /** Click out an area that changes hands (e.g. a conflict's outcome). */
   onDrawTerritory: (request: Omit<TerritoryCreate, "polygon">, title: string) => void;
   onSelectTerritory: (id: number | null) => void;
@@ -238,6 +243,12 @@ export function MapTab({
               </SelectContent>
             </Select>
           </SettingRow>
+          <SettingRow label="New province" hint="Draw it on the map; it can take land from its neighbours">
+            <Button size="sm" variant="outline" disabled={actions.redrawing} onClick={actions.onAddProvince}>
+              <PlusIcon />
+              Add province
+            </Button>
+          </SettingRow>
           <SettingRow label="Undo last change" hint={last ? last.summary : "Nothing to undo"}>
             <Button size="sm" variant="outline" disabled={!last || undo.isPending} onClick={() => undo.mutate()}>
               <Undo2Icon />
@@ -284,8 +295,10 @@ function ProvincePanel({
   onRedraw: () => void;
   redrawing: boolean;
 }) {
+  const names = useProvinceNames();
   const updateProvince = useUpdateProvince();
   const redrawProvince = useRedrawProvince();
+  const removeProvince = useRemoveProvince();
   const delegates = useMemo(() => new Map(state.delegates.map((d) => [d.id, d])), [state.delegates]);
   const { bands } = useFormula();
   const province = state.provinces.find((p) => p.id === provinceId);
@@ -297,7 +310,7 @@ function ProvincePanel({
 
   return (
     <section>
-      <SectionHeading title={PROVINCE_NAMES[province.id]}>
+      <SectionHeading title={names[province.id]}>
         <Badge variant={holder ? "secondary" : "outline"}>
           {province.contested_by_id != null
             ? "Contested"
@@ -421,10 +434,20 @@ function ProvincePanel({
         ) : null}
         <SettingRow
           label="Border"
-          hint={province.shape ? "Redrawn by staff" : "Original outline"}
+          hint={province.custom ? "Added by staff" : province.shape ? "Redrawn by staff" : "Original outline"}
         >
           <div className="flex gap-1.5">
-            {province.shape ? (
+            {province.custom ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="text-destructive hover:text-destructive"
+                disabled={removeProvince.isPending || redrawing}
+                onClick={() => removeProvince.mutate(province.id)}
+              >
+                Remove province
+              </Button>
+            ) : province.shape ? (
               <Button
                 size="sm"
                 variant="ghost"
@@ -443,7 +466,7 @@ function ProvincePanel({
         <div className="px-3.5 py-3">
           <Button className="w-full" size="sm" onClick={onInvade}>
             <SwordsIcon />
-            Invade {PROVINCE_NAMES[province.id]}
+            Invade {names[province.id]}
           </Button>
         </div>
       </div>
@@ -462,6 +485,7 @@ export function FactionsTab({
   selectedCharacterId: number | null;
   actions: MapActions;
 }) {
+  const names = useProvinceNames();
   const createFaction = useCreateFaction();
   const [newName, setNewName] = useState("");
   const { offMap, landless, placeable, place, pending } = useAutoPlace(state);
@@ -474,7 +498,7 @@ export function FactionsTab({
       key={d.id}
       state={state}
       delegate={d}
-      provinces={provincesOf(d.id, state.provinces).map((p) => PROVINCE_NAMES[p.id])}
+      provinces={provincesOf(d.id, state.provinces).map((p) => names[p.id])}
       selected={selectedCharacterId === d.id}
     />
   );
@@ -641,7 +665,7 @@ function FactionRow({
   }, [selected]);
   const onMap = d.x != null;
   const place = () => {
-    const labels = Object.fromEntries(QING.provinces.map((p) => [p.id, p.label]));
+    const labels = Object.fromEntries(mapProvinces(state.provinces).map((p) => [p.id, p.label]));
     const [x, y] = defaultPinSpot(d, state.provinces, labels, [QING.width / 2, QING.height / 2]);
     move.mutate({ id: d.id, x, y });
   };
@@ -695,6 +719,8 @@ function FactionEditor({
   const [writing, setWriting] = useState(false);
   const updateScores = useUpdateScores();
   const updateProfile = useUpdateProfile();
+  const names = useProvinceNames();
+  const [newFaction, setNewFaction] = useState(false);
   const [scores, setScores] = useState<Record<Indicator, string>>({
     reputation: String(d.reputation),
     economics: String(d.economics),
@@ -742,9 +768,22 @@ function FactionEditor({
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
+          {newFaction ? (
+            <NewFactionField
+              onCancel={() => setNewFaction(false)}
+              onCreated={(id) => {
+                setNewFaction(false);
+                updateProfile.mutate({ id: d.id, body: { faction_id: id } });
+              }}
+            />
+          ) : null}
           <Select
             value={d.faction_id != null ? String(d.faction_id) : NOBODY}
-            onValueChange={(v) => updateProfile.mutate({ id: d.id, body: { faction_id: v === NOBODY ? null : Number(v) } })}
+            onValueChange={(v) =>
+              v === NEW_FACTION
+                ? setNewFaction(true)
+                : updateProfile.mutate({ id: d.id, body: { faction_id: v === NOBODY ? null : Number(v) } })
+            }
           >
             <SelectTrigger size="sm" className="bg-background h-7 w-[150px] text-xs" aria-label="Faction">
               <SelectValue />
@@ -757,6 +796,7 @@ function FactionEditor({
                   {f.name}
                 </SelectItem>
               ))}
+              <SelectItem value={NEW_FACTION}>+ New faction…</SelectItem>
             </SelectContent>
           </Select>
           <Select
@@ -768,9 +808,9 @@ function FactionEditor({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={NOBODY}>No home</SelectItem>
-              {QING.provinces.map((p) => (
-                <SelectItem key={p.id} value={p.id}>
-                  {p.name}
+              {Object.entries(names).map(([id, name]) => (
+                <SelectItem key={id} value={id}>
+                  {name}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -1480,6 +1520,7 @@ function BorderFollowUp({
   state: MapStateResponse;
   actions: MapActions;
 }) {
+  const names = useProvinceNames();
   const winner = conflict.parties.find((p) => p.id === conflict.winner_id) ?? null;
   const losers = conflict.parties.filter((p) => p.id !== conflict.winner_id);
   // Default to land the loser holds, since that's what usually changes hands.
@@ -1523,7 +1564,7 @@ function BorderFollowUp({
           </SelectTrigger>
           <SelectContent align="end">
             <SelectItem value={ANYWHERE}>Anywhere on the map</SelectItem>
-            {Object.entries(PROVINCE_NAMES).map(([id, name]) => (
+            {Object.entries(names).map(([id, name]) => (
               <SelectItem key={id} value={id}>
                 {name}
               </SelectItem>
@@ -1547,7 +1588,7 @@ function BorderFollowUp({
                   crisis_note_id: conflict.crisis_note_id,
                   reason: `Outcome of ${conflict.name}`,
                 },
-                `Area ${winner.name} takes${province ? ` in ${PROVINCE_NAMES[province]}` : ""}`,
+                `Area ${winner.name} takes${province ? ` in ${names[province]}` : ""}`,
               );
             }}
           >
@@ -1567,7 +1608,7 @@ function BorderFollowUp({
           }}
         >
           <PencilRulerIcon />
-          Redraw {province ? PROVINCE_NAMES[province] : "a province"}&apos;s border
+          Redraw {province ? names[province] : "a province"}&apos;s border
         </Button>
         <Button size="sm" variant="ghost" className="justify-start" onClick={markDone}>
           No border change
@@ -1586,6 +1627,7 @@ const STATUS_LABEL: Record<TerritoryStatus, string> = {
 };
 
 function TerritoryList({ state, actions }: { state: MapStateResponse; actions: MapActions }) {
+  const names = useProvinceNames();
   if (state.territories.length === 0) return null;
   const delegates = new Map(state.delegates.map((d) => [d.id, d]));
   return (
@@ -1607,7 +1649,7 @@ function TerritoryList({ state, actions }: { state: MapStateResponse; actions: M
                 <span className="min-w-0 flex-1 truncate text-sm">
                   {holder?.name ?? "Unknown"}
                   <span className="text-muted-foreground">
-                    {t.province_id ? ` · ${PROVINCE_NAMES[t.province_id]}` : ""}
+                    {t.province_id ? ` · ${names[t.province_id]}` : ""}
                   </span>
                 </span>
                 <Badge
@@ -1634,6 +1676,7 @@ function TerritoryPanel({
   territory: TerritoryResponse;
   actions: MapActions;
 }) {
+  const names = useProvinceNames();
   const update = useUpdateTerritory();
   const giveBack = useReturnTerritory();
   const delegates = new Map(state.delegates.map((d) => [d.id, d]));
@@ -1645,7 +1688,7 @@ function TerritoryPanel({
 
   return (
     <section>
-      <SectionHeading title={t.province_id ? `Part of ${PROVINCE_NAMES[t.province_id]}` : "Captured area"}>
+      <SectionHeading title={t.province_id ? `Part of ${names[t.province_id]}` : "Captured area"}>
         <div className="flex items-center gap-1.5">
           <Badge
             variant={t.status === "CONTESTED" ? "default" : "secondary"}

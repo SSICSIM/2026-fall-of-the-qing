@@ -45,11 +45,14 @@ export function useBulkUploadCharacters() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (file: File) => charactersService.bulkUpload(file),
-    onSuccess: ({ created, skipped }) => {
+    onSuccess: ({ created, skipped, unknown_provinces }) => {
       qc.invalidateQueries({ queryKey: ["characters"] });
       qc.invalidateQueries({ queryKey: ["delegates"] });
       qc.invalidateQueries({ queryKey: ["map"] });
       toast.success(`Imported ${created} character${created !== 1 ? "s" : ""}${skipped ? `, ${skipped} skipped (duplicate)` : ""}.`);
+      if (unknown_provinces.length) {
+        toast.warning(`No province matched for ${unknown_provinces.join("; ")}. Those characters were added without a home.`);
+      }
     },
     onError: (err: Error) => toast.error(err.message || "Upload failed."),
   });

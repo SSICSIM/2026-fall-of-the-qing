@@ -33,6 +33,34 @@ export function useCreatePeriod() {
   });
 }
 
+export function useReopenPeriod() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => crisisPeriodsService.reopen(id),
+    onSuccess: (period) => {
+      qc.invalidateQueries({ queryKey: ["periods"] });
+      qc.invalidateQueries({ queryKey: ["notes"] });
+      toast.success(`Back to ${period.name}.`);
+    },
+    onError: (err: Error) => toast.error(err.message || "Failed to reopen period."),
+  });
+}
+
+export function useDeletePeriod() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => crisisPeriodsService.delete(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["periods"] });
+      qc.invalidateQueries({ queryKey: ["notes"] });
+      qc.invalidateQueries({ queryKey: ["analytics"] });
+      qc.invalidateQueries({ queryKey: ["staff-notes"] });
+      toast.success("Period deleted.");
+    },
+    onError: (err: Error) => toast.error(err.message || "Failed to delete period."),
+  });
+}
+
 export function useArchivePeriod() {
   const qc = useQueryClient();
   return useMutation({

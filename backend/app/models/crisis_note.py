@@ -95,6 +95,7 @@ class CrisisPeriod(Base):
             "is_active",
             unique=True,
             postgresql_where=text("is_active"),
+            sqlite_where=text("is_active"),  # same rule in the test database
         ),
     )
 
@@ -114,6 +115,10 @@ class CrisisPeriod(Base):
     staff_notes: Mapped[list[StaffNote]] = relationship(
         "StaffNote", back_populates="period"
     )
+
+    @property
+    def note_count(self) -> int:
+        return len(self.crisis_notes)
 
 
 class CrisisNote(Base):

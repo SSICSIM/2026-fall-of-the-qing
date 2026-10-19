@@ -5,6 +5,7 @@ Keep in sync with frontend/scripts/build-qing-map.mjs, which draws them.
 
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING
 
 from sqlalchemy.orm import Session
@@ -46,7 +47,8 @@ PROVINCE_IDS: tuple[str, ...] = (
 
 
 def ensure_provinces(db: Session) -> list[Province]:
-    """Return every province row, creating any that don't exist yet."""
+    """Return every province row, creating any preset ones that don't exist
+    yet: the presets in map order, then provinces staff added, oldest first."""
     existing = {p.id: p for p in db.query(Province).all()}
     missing = [pid for pid in PROVINCE_IDS if pid not in existing]
     if missing:
@@ -55,7 +57,35 @@ def ensure_provinces(db: Session) -> list[Province]:
             db.add(province)
             existing[pid] = province
         db.commit()
-    return [existing[pid] for pid in PROVINCE_IDS]
+    # A staff-added province without a shape has been removed (kept so undo
+    # can bring it back).
+    added = sorted((p for p in existing.values() if p.custom and p.shape), key=lambda p: p.id)
+    return [existing[pid] for pid in PROVINCE_IDS] + added
+
+
+def get_province(db: Session, province_id: str) -> Province | None:
+    """A province on the map, preset or added; None if unknown or removed."""
+    return next((p for p in ensure_provinces(db) if p.id == province_id), None)
+
+
+def province_name(province: Province) -> str:
+    """Preset ids read as their names (inner_mongolia → Inner Mongolia)."""
+    return province.name or province.id.replace("_", " ").title()
+
+
+def find_province(db: Session, text: str) -> Province | None:
+    """The province a person typed, by id or by name, ignoring case and
+    spaces vs underscores."""
+    key = text.strip().lower().replace(" ", "_").replace("-", "_")
+    for province in ensure_provinces(db):
+        if key in (province.id, province_name(province).lower().replace(" ", "_")):
+            return province
+    return None
+
+
+def slug(name: str) -> str:
+    """An id for a new province: its name, lowercased with underscores."""
+    return re.sub(r"[^a-z0-9]+", "_", name.strip().lower()).strip("_")[:64]
 
 
 def holder_ids(province: Province) -> list[int]:
