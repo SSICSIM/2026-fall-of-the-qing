@@ -32,7 +32,8 @@ import {
 import { useMapState } from "@/hooks/useWarRoom";
 import { holderIds } from "@/lib/warRoom/control";
 import { pinSpotIn } from "@/lib/warRoom/pins";
-import { PROVINCE_NAMES, QING } from "@/lib/warRoom/provinces";
+import { mapProvinces, provinceNames } from "@/lib/warRoom/provinces";
+import { NEW_FACTION, NewFactionField } from "@/components/war-map/NewFactionField";
 import { cn } from "@/lib/utils";
 import type { CharacterResponse } from "@/types/api";
 
@@ -54,6 +55,8 @@ export function CharacterManagerDialog({ open, onOpenChange }: Props) {
   const { mutate: bulkUpload, isPending: uploading } = useBulkUploadCharacters();
   const { data: map } = useMapState(0);
   const names = new Map(map?.delegates.map((d) => [d.id, d.name]));
+  const provinces = mapProvinces(map?.provinces ?? []);
+  const provinceName = provinceNames(map?.provinces ?? []);
   const heldBy = (pid: string) => {
     const p = map?.provinces.find((x) => x.id === pid);
     return p ? holderIds(p).map((id) => names.get(id) ?? "?") : [];
@@ -67,10 +70,16 @@ export function CharacterManagerDialog({ open, onOpenChange }: Props) {
     e.preventDefault();
     if (!name.trim()) return;
     // Drop the pin in their first home province.
-    const first = QING.provinces.find((p) => p.id === homes[0]);
+    const first = provinces.find((p) => p.id === homes[0]);
     const [x, y] = first ? pinSpotIn(first.label, characters?.length ?? 0) : [undefined, undefined];
     create(
-      { name: name.trim(), province_ids: homes, x, y, faction_id: factionId ? Number(factionId) : undefined },
+      {
+        name: name.trim(),
+        province_ids: homes,
+        x,
+        y,
+        faction_id: factionId && factionId !== NEW_FACTION ? Number(factionId) : undefined,
+      },
       {
         onSuccess: () => {
           setName("");
@@ -138,7 +147,9 @@ export function CharacterManagerDialog({ open, onOpenChange }: Props) {
               Add
             </Button>
           </div>
-          {map?.factions.length ? (
+          {factionId === NEW_FACTION ? (
+            <NewFactionField onCancel={() => setFactionId("")} onCreated={(id) => setFactionId(String(id))} />
+          ) : (
             <NativeSelect
               id="new-character-faction"
               aria-label="Faction"
@@ -147,19 +158,20 @@ export function CharacterManagerDialog({ open, onOpenChange }: Props) {
               onChange={(e) => setFactionId(e.target.value)}
             >
               <NativeSelectOption value="">No faction</NativeSelectOption>
-              {map.factions.map((f) => (
+              {map?.factions.map((f) => (
                 <NativeSelectOption key={f.id} value={f.id}>
                   {f.name}
                 </NativeSelectOption>
               ))}
+              <NativeSelectOption value={NEW_FACTION}>+ New faction…</NativeSelectOption>
             </NativeSelect>
-          ) : null}
+          )}
           <div>
             <div className="text-muted-foreground mb-1 text-xs">
               Home provinces · their pin goes on the first one; with none they start off the map
             </div>
             <div className="flex max-h-36 flex-wrap gap-1 overflow-y-auto">
-              {QING.provinces.map((p) => {
+              {provinces.map((p) => {
                 const on = homes.includes(p.id);
                 const holders = heldBy(p.id);
                 return (
@@ -185,7 +197,7 @@ export function CharacterManagerDialog({ open, onOpenChange }: Props) {
                   const holders = heldBy(pid);
                   return (
                     <li key={pid}>
-                      {PROVINCE_NAMES[pid]}:{" "}
+                      {provinceName[pid]}:{" "}
                       {holders.length ? `shares with ${holders.join(", ")}` : "holds alone"}
                     </li>
                   );
@@ -195,7 +207,7 @@ export function CharacterManagerDialog({ open, onOpenChange }: Props) {
           </div>
         </form>
 
-        <div className="flex items-center gap-2">
+        <div className="space-y-1.5">
           <input
             ref={fileRef}
             type="file"
@@ -213,6 +225,10 @@ export function CharacterManagerDialog({ open, onOpenChange }: Props) {
             <Upload className="mr-2 h-3.5 w-3.5" />
             {uploading ? "Importing…" : "Import from .xlsx or .json"}
           </Button>
+          <p className="text-muted-foreground text-xs">
+            Column A: name · B: home province (e.g. Shanxi) · C: owns it? (yes/no). Owners hold the province, sharing it
+            with anyone who already does.
+          </p>
         </div>
         </DialogContent>
       </Dialog>

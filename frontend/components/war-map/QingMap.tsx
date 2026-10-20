@@ -15,7 +15,7 @@ import {
   type ViewBox,
 } from "@/lib/warRoom/geometry";
 import { battleAnchor, battlesOnMap, initials, PIN_HEAD_CENTER_Y } from "@/lib/warRoom/pins";
-import { CITY_HOLDERS, LABEL_STYLE, QING } from "@/lib/warRoom/provinces";
+import { CITY_HOLDERS, LABEL_STYLE, mapProvinces, QING } from "@/lib/warRoom/provinces";
 import type {
   AnnotationResponse,
   ConflictResponse,
@@ -303,17 +303,7 @@ export function QingMap({
 
   // Redrawn borders replace the preset outline; draw those provinces last so
   // an enlarged province sits on top of the neighbour it grew into.
-  const shapes = QING.provinces
-    .map((shape) => {
-      const custom = provinceState.get(shape.id)?.shape ?? null;
-      return {
-        ...shape,
-        d: custom ? closedPath(custom) : shape.d,
-        custom,
-        label: (custom ? polygonCentroid(custom as Pt[]) : shape.label) as Pt,
-      };
-    })
-    .sort((a, b) => Number(!!a.custom) - Number(!!b.custom));
+  const shapes = mapProvinces(state.provinces).sort((a, b) => Number(!!a.custom) - Number(!!b.custom));
   const selectedShape = shapes.find((s) => s.id === (redraw ? redraw.provinceId : selectedProvinceId));
 
   const colorOf = (id: number | null | undefined) => {
@@ -414,20 +404,40 @@ export function QingMap({
         </g>
         <path d={QING.qingUnderlay} fill={LAND} />
 
-        {/* Provinces */}
-        <g strokeLinejoin="round" clipPath="url(#land)">
+        {/* Provinces: colour first, then rivers, then the borders on top so
+            the rivers never hide a border. */}
+        <g clipPath="url(#land)">
+          {shapes.map((shape) => (
+            <path
+              key={shape.id}
+              d={shape.d}
+              data-province={shape.id}
+              fill={fillFor(shape.id)}
+              className="transition-[fill] duration-500"
+            />
+          ))}
+        </g>
+        {/* Rivers and lakes */}
+        <g pointerEvents="none">
+          {QING.lakes.map((d, i) => (
+            <path key={i} d={d} fill={SEA} stroke="#7fb1d6" strokeWidth="0.5" />
+          ))}
+          <g fill="none" stroke="#9cc3e2" strokeLinecap="round" strokeLinejoin="round" opacity="0.9">
+            {QING.rivers.map((r, i) => (
+              <path key={i} d={r.d} strokeWidth={r.major ? 1.25 : 0.6} />
+            ))}
+          </g>
+        </g>
+        <g fill="none" strokeLinejoin="round" clipPath="url(#land)" pointerEvents="none">
           {shapes.map((shape) => {
             const p = provinceState.get(shape.id);
             return (
               <path
                 key={shape.id}
                 d={shape.d}
-                data-province={shape.id}
-                fill={fillFor(shape.id)}
                 stroke={p?.contested_by_id != null ? CONTESTED : INK}
                 strokeWidth={p?.contested_by_id != null ? 1.6 : 0.9}
                 strokeDasharray={p?.contested_by_id != null || p?.occupier_id != null ? "4 2.5" : undefined}
-                className="transition-[fill] duration-500"
               />
             );
           })}
@@ -471,17 +481,6 @@ export function QingMap({
           <path d={selectedShape.d} fill="none" stroke={ACCENT} strokeWidth={3 * unit} pointerEvents="none" />
         )}
 
-        {/* Rivers and lakes */}
-        <g pointerEvents="none">
-          {QING.lakes.map((d, i) => (
-            <path key={i} d={d} fill={SEA} stroke="#7fb1d6" strokeWidth="0.5" />
-          ))}
-          <g fill="none" stroke="#9cc3e2" strokeLinecap="round" strokeLinejoin="round" opacity="0.9">
-            {QING.rivers.map((r, i) => (
-              <path key={i} d={r.d} strokeWidth={r.major ? 1.25 : 0.6} />
-            ))}
-          </g>
-        </g>
 
         {/* Text and markers */}
         <g pointerEvents="none" fontFamily="var(--font-sans)">

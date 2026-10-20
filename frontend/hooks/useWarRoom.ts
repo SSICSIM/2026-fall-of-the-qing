@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { useMemo } from "react";
 
 import { DEFAULT_FORMULA, type Formula } from "@/lib/warRoom/efficiency";
+import { provinceNames } from "@/lib/warRoom/provinces";
 import { warRoomService } from "@/services/warRoom";
 import type {
   AnnotationCreate,
@@ -13,11 +14,14 @@ import type {
   ConflictCreate,
   ConflictResolve,
   DelegateProfileUpdate,
+  DelegateResponse,
   FactionCreate,
   FormulaResponse,
   FormulaSettings,
   InvasionRequest,
+  MapStateResponse,
   PresetCreate,
+  ProvinceCreate,
   ProvinceShapeUpdate,
   ProvinceUpdate,
   PublishRequest,
@@ -39,6 +43,12 @@ export function useDelegates() {
 
 // The projected map polls so it picks up changes confirmed from the calculator
 // on another machine.
+/** Province names by id, including provinces staff added. */
+export function useProvinceNames(): Record<string, string> {
+  const { data } = useMapState(0);
+  return useMemo(() => provinceNames(data?.provinces ?? []), [data]);
+}
+
 export function useMapState(pollMs = 5000) {
   return useQuery({
     queryKey: ["map"],
@@ -146,10 +156,16 @@ export function useDeleteFaction() {
 }
 
 export function usePublish() {
+  const qc = useQueryClient();
   const invalidate = useInvalidateWarRoom();
   return useMutation({
     mutationFn: (body: PublishRequest) => warRoomService.publish(body),
-    onSuccess: () => {
+    onSuccess: (published) => {
+      // Show the new ratings straight away rather than after the refetch.
+      const byId = new Map(published.map((d) => [d.id, d]));
+      const merge = (list: DelegateResponse[]) => list.map((d) => byId.get(d.id) ?? d);
+      qc.setQueryData<MapStateResponse>(["map"], (old) => old && { ...old, delegates: merge(old.delegates) });
+      qc.setQueryData<DelegateResponse[]>(["delegates"], (old) => old && merge(old));
       invalidate();
       toast.success("Efficiency sent to the map.");
     },
@@ -295,6 +311,30 @@ export function useRedrawProvince() {
       toast.success(body.shape ? "Border redrawn." : "Original border restored.");
     },
     onError: (err: Error) => toast.error(err.message || "Failed to save the border."),
+  });
+}
+
+export function useAddProvince() {
+  const invalidate = useInvalidateWarRoom();
+  return useMutation({
+    mutationFn: (body: ProvinceCreate) => warRoomService.addProvince(body),
+    onSuccess: (p) => {
+      invalidate();
+      toast.success(`${p.name} added. Undo removes it.`);
+    },
+    onError: (err: Error) => toast.error(err.message.includes("409") ? "A province with that name already exists." : err.message || "Failed to add the province."),
+  });
+}
+
+export function useRemoveProvince() {
+  const invalidate = useInvalidateWarRoom();
+  return useMutation({
+    mutationFn: (id: string) => warRoomService.removeProvince(id),
+    onSuccess: () => {
+      invalidate();
+      toast.success("Province removed. Undo brings it back.");
+    },
+    onError: (err: Error) => toast.error(err.message || "Failed to remove the province."),
   });
 }
 

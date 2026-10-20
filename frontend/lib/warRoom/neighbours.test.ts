@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { ringArea, type Pt } from "./geometry";
-import { adjustNeighbours } from "./neighbours";
+import { adjustNeighbours, carveOut } from "./neighbours";
 import { dragHandle, outlineFromPath } from "./outline";
 import { QING } from "./provinces";
 
@@ -57,5 +57,18 @@ describe("adjustNeighbours", () => {
     expect(ringArea(out.hubei)).toBeLessThan(ringArea(others.hubei));
     // Far-away provinces are untouched.
     expect(out.xinjiang).toBeUndefined();
+  });
+});
+
+describe("carveOut", () => {
+  it("cuts a new province out of the ones it overlaps, leaving the rest", () => {
+    const left: Pt[] = [[0, 0], [10, 0], [10, 10], [0, 10]];
+    const right: Pt[] = [[10, 0], [20, 0], [20, 10], [10, 10]];
+    const far: Pt[] = [[50, 50], [60, 50], [60, 60]];
+    const area: Pt[] = [[5, 0], [15, 0], [15, 10], [5, 10]];
+    const next = carveOut(area, { left, right, far });
+    expect(Object.keys(next).sort()).toEqual(["left", "right"]);
+    expect(ringArea(next.left)).toBeCloseTo(50);
+    expect(ringArea(next.right)).toBeCloseTo(50);
   });
 });

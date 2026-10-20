@@ -71,3 +71,55 @@ def archive_period(period_id: int, db: Session = Depends(get_db)) -> CrisisPerio
     db.commit()
     db.refresh(next_period)
     return next_period
+
+
+def _latest_archived(db: Session) -> CrisisPeriod | None:
+    return (
+        db.query(CrisisPeriod)
+        .filter(CrisisPeriod.is_active.is_(False))
+        .order_by(CrisisPeriod.archived_at.desc().nulls_last(), CrisisPeriod.id.desc())
+        .first()
+    )
+
+
+def _activate(period: CrisisPeriod) -> None:
+    period.is_active = True
+    period.archived_at = None
+
+
+@router.delete("/{period_id}", status_code=status.HTTP_204_NO_CONTENT, response_model=None)
+def delete_period(period_id: int, db: Session = Depends(get_db)) -> None:
+    """Delete a period started by mistake, with its notes. If it was the
+    active one, the most recently archived period becomes active again."""
+    period = db.get(CrisisPeriod, period_id)
+    if not period:
+        raise HTTPException(status_code=404, detail="Period not found.")
+    was_active = period.is_active
+    for note in [*period.crisis_notes, *period.staff_notes]:
+        db.delete(note)
+    db.delete(period)
+    # The one-active-period index needs the row gone before another activates.
+    db.flush()
+    if was_active and (previous := _latest_archived(db)) is not None:
+        _activate(previous)
+    db.commit()
+
+
+@router.post("/{period_id}/reopen", response_model=CrisisPeriodResponse)
+def reopen_period(period_id: int, db: Session = Depends(get_db)) -> CrisisPeriod:
+    """Go back to an archived period: it becomes active again and the
+    current active period is archived."""
+    period = db.get(CrisisPeriod, period_id)
+    if not period:
+        raise HTTPException(status_code=404, detail="Period not found.")
+    if period.is_active:
+        raise HTTPException(status_code=409, detail="Period is already active.")
+    active = db.query(CrisisPeriod).filter(CrisisPeriod.is_active.is_(True)).first()
+    if active:
+        active.is_active = False
+        active.archived_at = datetime.now(timezone.utc)
+        db.flush()
+    _activate(period)
+    db.commit()
+    db.refresh(period)
+    return period

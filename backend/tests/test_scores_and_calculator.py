@@ -98,14 +98,23 @@ def test_invalid_indicator(client, delegates):
     assert res.status_code == 422
 
 
-def test_publish_sends_each_delegates_rating_to_map(client, delegates):
+def test_publish_sends_one_delegates_rating_to_map(client, delegates):
+    yuan = delegates[0]
+    res = client.post("/api/calculator/publish", json={"character_ids": [yuan.id]})
+    assert res.status_code == 200
+    state = client.get("/api/map").json()
+    published = {d["id"]: d["published_efficiency"] for d in state["delegates"]}
+    assert published[yuan.id] == pytest.approx(1.566, abs=1e-3)
+
+
+def test_publish_sends_group_average_to_each_delegate(client, delegates):
     yuan, sun, _ = delegates
     res = client.post("/api/calculator/publish", json={"character_ids": [yuan.id, sun.id]})
     assert res.status_code == 200
     state = client.get("/api/map").json()
     published = {d["id"]: d["published_efficiency"] for d in state["delegates"]}
-    assert published[yuan.id] == pytest.approx(1.566, abs=1e-3)
-    assert published[sun.id] == pytest.approx(0.783, abs=1e-3)
+    assert published[yuan.id] == pytest.approx(1.175, abs=1e-3)
+    assert published[sun.id] == pytest.approx(1.175, abs=1e-3)
 
 
 def test_presets(client, delegates):

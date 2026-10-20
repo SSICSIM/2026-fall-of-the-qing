@@ -8,4 +8,7 @@ export const crisisPeriodsService = {
     apiClient.post<CrisisPeriodResponse>("/api/periods", body),
   archive: (id: number) =>
     apiClient.post<CrisisPeriodResponse>(`/api/periods/${id}/archive`, {}),
+  reopen: (id: number) =>
+    apiClient.post<CrisisPeriodResponse>(`/api/periods/${id}/reopen`, {}),
+  delete: (id: number) => apiClient.delete<void>(`/api/periods/${id}`),
 };

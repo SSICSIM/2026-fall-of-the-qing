@@ -20,7 +20,7 @@ import { useRedrawProvince } from "@/hooks/useWarRoom";
 import type { Pt } from "@/lib/warRoom/geometry";
 import { adjustNeighbours } from "@/lib/warRoom/neighbours";
 import { outlineFromPath } from "@/lib/warRoom/outline";
-import { PROVINCE_NAMES, QING } from "@/lib/warRoom/provinces";
+import { mapProvinces, provinceNames, QING } from "@/lib/warRoom/provinces";
 import type { ProvinceResponse } from "@/types/api";
 import { NewNoteDialog } from "./NewNoteDialog";
 
@@ -69,11 +69,14 @@ export function BorderDialog({
   const neighbours = useMemo(() => {
     if (!provinceId || points.length < 3) return {};
     const others = Object.fromEntries(
-      QING.provinces.filter((p) => p.id !== provinceId).map((p) => [p.id, currentOutline(p.id, provinces)]),
+      mapProvinces(provinces)
+        .filter((p) => p.id !== provinceId)
+        .map((p) => [p.id, currentOutline(p.id, provinces)]),
     );
     return adjustNeighbours(currentOutline(provinceId, provinces), points, others);
   }, [provinceId, points, provinces]);
   const neighbourIds = Object.keys(neighbours);
+  const names = provinceNames(provinces);
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -97,7 +100,7 @@ export function BorderDialog({
       <DialogContent className="rounded-[20px] sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold">
-            Save new border{provinceId ? ` for ${PROVINCE_NAMES[provinceId]}` : ""}
+            Save new border{provinceId ? ` for ${names[provinceId]}` : ""}
           </DialogTitle>
           <DialogDescription className="sr-only">Link the new border to a crisis note</DialogDescription>
         </DialogHeader>
@@ -132,7 +135,7 @@ export function BorderDialog({
               <span>
                 Move the neighbouring borders too
                 <span className="text-muted-foreground block text-xs">
-                  {neighbourIds.map((id) => PROVINCE_NAMES[id]).join(", ")}
+                  {neighbourIds.map((id) => names[id]).join(", ")}
                   {neighbourIds.includes("guangdong") ? " (Guangdong keeps its mainland outline only; Hainan isn't redrawn)" : ""}
                 </span>
               </span>

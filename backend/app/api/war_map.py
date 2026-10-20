@@ -21,6 +21,7 @@ from app.schemas import (
     AnnotationUpdate,
     InvasionRequest,
     MapStateResponse,
+    ProvinceCreate,
     ProvinceResponse,
     ProvinceShapeUpdate,
     ProvinceUpdate,
@@ -31,7 +32,14 @@ from app.schemas import (
 )
 from app.services.efficiency import INDICATORS, clamp_score
 from app.services.history import Recorder
-from app.services.provinces import PROVINCE_IDS, ensure_provinces, holder_ids, set_holders
+from app.services.provinces import (
+    ensure_provinces,
+    get_province,
+    holder_ids,
+    province_name,
+    set_holders,
+    slug,
+)
 
 router = APIRouter(prefix="/map", tags=["map"])
 
@@ -55,11 +63,9 @@ def get_map(db: Session = Depends(get_db)) -> MapStateResponse:
 
 
 def _province(db: Session, province_id: str) -> Province:
-    if province_id not in PROVINCE_IDS:
+    province = get_province(db, province_id)
+    if province is None:
         raise HTTPException(status_code=404, detail=f"Unknown province: {province_id}.")
-    ensure_provinces(db)
-    province = db.get(Province, province_id)
-    assert province is not None
     return province
 
 
@@ -120,6 +126,10 @@ def redraw_province(
     if province_id in body.neighbour_shapes:
         raise HTTPException(status_code=422, detail="A province can't be its own neighbour.")
     neighbours = [(_province(db, pid), shape) for pid, shape in body.neighbour_shapes.items()]
+    if body.shape is None and province.custom:
+        raise HTTPException(
+            status_code=422, detail="An added province has no original border; remove it instead."
+        )
     shape = _rounded(body.shape) if body.shape is not None else None
     summary = f"Border {'redrawn' if shape else 'reset'}: {province_id}"
     if neighbours:
@@ -140,6 +150,69 @@ def redraw_province(
         db.rollback()
     db.refresh(province)
     return province
+
+
+@router.post("/provinces", response_model=ProvinceResponse, status_code=status.HTTP_201_CREATED)
+def add_province(body: ProvinceCreate, db: Session = Depends(get_db)) -> Province:
+    """Add a province drawn by staff. Neighbours whose land it takes are
+    redrawn in the same undo step."""
+    require_note(db, body.crisis_note_id)
+    name = body.name.strip()
+    province_id = slug(name)
+    if not province_id:
+        raise HTTPException(status_code=422, detail="Give the province a name.")
+    existing = db.get(Province, province_id)
+    taken = any(province_name(p).lower() == name.lower() for p in ensure_provinces(db))
+    if taken or (existing is not None and not existing.custom):
+        raise HTTPException(status_code=409, detail="A province with that name already exists.")
+    if province_id in body.neighbour_shapes:
+        raise HTTPException(status_code=422, detail="A province can't be its own neighbour.")
+    neighbours = [(_province(db, pid), shape) for pid, shape in body.neighbour_shapes.items()]
+    if body.controller_id is not None:
+        get_characters(db, [body.controller_id])
+
+    # A removed province of the same name comes back rather than clashing.
+    province = existing or Province(id=province_id, custom=True, co_holder_ids=[])
+    if existing is None:
+        db.add(province)
+        db.flush()
+    summary = f"Province added: {name}"
+    if neighbours:
+        summary += " (from " + ", ".join(p.id for p, _ in neighbours) + ")"
+    recorder = Recorder(
+        db,
+        HistoryKind.BORDER,
+        summary=summary,
+        reason=body.reason,
+        crisis_note_id=body.crisis_note_id,
+    )
+    recorder.set(province, "name", name)
+    recorder.set(province, "shape", _rounded(body.shape))
+    set_holders(recorder, province, body.controller_id, [])
+    for neighbour, neighbour_shape in neighbours:
+        recorder.set(neighbour, "shape", _rounded(neighbour_shape))
+    db.commit()
+    db.refresh(province)
+    return province
+
+
+@router.delete(
+    "/provinces/{province_id}", status_code=status.HTTP_204_NO_CONTENT, response_model=None
+)
+def remove_province(province_id: str, db: Session = Depends(get_db)) -> None:
+    """Remove a province staff added (undo brings it back). Its land goes
+    back to whichever neighbours' borders are underneath."""
+    province = _province(db, province_id)
+    if not province.custom:
+        raise HTTPException(status_code=409, detail="Only provinces added by staff can be removed.")
+    recorder = Recorder(db, HistoryKind.BORDER, summary=f"Province removed: {province_name(province)}")
+    recorder.set(province, "shape", None)
+    set_holders(recorder, province, None, [])
+    recorder.set(province, "occupier_id", None)
+    recorder.set(province, "contested_by_id", None)
+    for character in db.query(Character).filter(Character.home_province_id == province.id):
+        character.home_province_id = None
+    db.commit()
 
 
 TERRITORY_STATUS = {

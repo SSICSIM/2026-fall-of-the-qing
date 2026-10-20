@@ -13,13 +13,17 @@ class HealthResponse(BaseModel):
     status: str = "ok"
 
 
+class SyncResponse(BaseModel):
+    revision: str
+
+
 # ── Characters ──────────────────────────────────────────────────────────────
 
 class CharacterCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     # Home provinces: the character becomes the controller of any that are
     # unclaimed and shares the rest with whoever holds them.
-    province_ids: list[str] = Field(default_factory=list, max_length=27)
+    province_ids: list[str] = Field(default_factory=list, max_length=64)
     faction_id: int | None = None
     # Where to drop their pin; omit both to leave them off the map.
     x: float | None = None
@@ -48,6 +52,7 @@ class CrisisPeriodResponse(BaseModel):
     is_active: bool
     created_at: datetime
     archived_at: datetime | None
+    note_count: int
 
 
 # ── Crisis Notes ─────────────────────────────────────────────────────────────
@@ -116,6 +121,9 @@ class StaffNoteResponse(BaseModel):
 class BulkUploadResult(BaseModel):
     created: int
     skipped: int
+    # Rows whose home province didn't match any province; the character was
+    # still added, without a home.
+    unknown_provinces: list[str] = Field(default_factory=list)
 
 
 # ── Analytics ────────────────────────────────────────────────────────────────
@@ -327,6 +335,9 @@ class ProvinceResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: str
+    # Set for provinces staff added; preset ones take their name from the map.
+    name: str | None
+    custom: bool
     controller_id: int | None
     # Characters sharing the province with the controller.
     co_holder_ids: list[int]
@@ -341,8 +352,20 @@ class ProvinceShapeUpdate(BaseModel):
     # Neighbours whose border moved along with it, by province id; saved in
     # the same undo step.
     neighbour_shapes: dict[str, Annotated[list[Point], Field(min_length=3, max_length=6000)]] = Field(
-        default_factory=dict, max_length=26
+        default_factory=dict, max_length=64
     )
+    crisis_note_id: int | None = None
+    reason: str | None = None
+
+
+class ProvinceCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=64)
+    shape: list[Point] = Field(min_length=3, max_length=6000)
+    # Neighbours that give up the land the new province takes.
+    neighbour_shapes: dict[str, Annotated[list[Point], Field(min_length=3, max_length=6000)]] = Field(
+        default_factory=dict, max_length=64
+    )
+    controller_id: int | None = None
     crisis_note_id: int | None = None
     reason: str | None = None
 

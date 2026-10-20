@@ -26,6 +26,8 @@ export interface CharacterCreate {
 export interface BulkUploadResult {
   created: number;
   skipped: number;
+  /** "Name: typed province" for rows whose province matched nothing. */
+  unknown_provinces: string[];
 }
 
 // ── Crisis Periods ────────────────────────────────────────────────────────────
@@ -36,6 +38,7 @@ export interface CrisisPeriodResponse {
   is_active: boolean;
   created_at: string;
   archived_at: string | null;
+  note_count: number;
 }
 
 export interface CrisisPeriodCreate {
@@ -247,6 +250,9 @@ export type AnnotationKind = "LINE" | "PIN";
 
 export interface ProvinceResponse {
   id: string;
+  /** Set for provinces staff added; preset names come from the map. */
+  name: string | null;
+  custom: boolean;
   controller_id: number | null;
   /** Characters sharing the province with the controller (a clique's region). */
   co_holder_ids: number[];
@@ -261,6 +267,16 @@ export interface ProvinceShapeUpdate {
   shape: [number, number][] | null;
   /** Neighbours whose border moved with it, saved in the same undo step. */
   neighbour_shapes?: Record<string, [number, number][]>;
+  crisis_note_id?: number;
+  reason?: string;
+}
+
+export interface ProvinceCreate {
+  name: string;
+  shape: [number, number][];
+  /** Neighbours that give up the land, saved in the same undo step. */
+  neighbour_shapes?: Record<string, [number, number][]>;
+  controller_id?: number | null;
   crisis_note_id?: number;
   reason?: string;
 }

@@ -47,6 +47,19 @@ function touching(piece: Pt[], ring: Pt[]): number {
   return length;
 }
 
+/** New outlines for the provinces an area overlaps, with the area cut out
+ * (e.g. for a province added on top of them). Only those that change. */
+export function carveOut(area: Pt[], others: Record<string, Pt[]>): Record<string, Pt[]> {
+  const next: Record<string, Pt[]> = {};
+  for (const [id, ring] of Object.entries(others)) {
+    const overlap = polygonClipping.intersection(poly(ring), poly(area));
+    if (!pieces(overlap).length) continue;
+    const cut = largest(polygonClipping.difference(poly(ring), poly(area)));
+    if (cut) next[id] = cut;
+  }
+  return next;
+}
+
 /**
  * New outlines for the neighbours of a redrawn province.
  *
@@ -61,14 +74,7 @@ export function adjustNeighbours(before: Pt[], after: Pt[], others: Record<strin
 
   // Land taken: every neighbour loses whatever the new outline covers.
   const gained = pieces(polygonClipping.difference(poly(after), poly(before)));
-  if (gained.length) {
-    for (const [id, ring] of Object.entries(others)) {
-      const overlap = polygonClipping.intersection(poly(ring), poly(after));
-      if (!pieces(overlap).length) continue;
-      const cut = largest(polygonClipping.difference(poly(ring), poly(after)));
-      if (cut) next[id] = cut;
-    }
-  }
+  if (gained.length) Object.assign(next, carveOut(after, others));
 
   // Land given up: each piece joins the neighbour sharing most of its edge.
   for (const piece of pieces(polygonClipping.difference(poly(before), poly(after)))) {

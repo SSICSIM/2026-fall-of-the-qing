@@ -15,11 +15,14 @@ from app.models.crisis_note import Character
 
 
 class Province(Base):
-    """Who holds a province. The shapes themselves live in the frontend."""
+    """Who holds a province. Preset shapes live in the frontend; provinces
+    staff add carry their own name and shape."""
 
     __tablename__ = "provinces"
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    name: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    custom: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     # Owner of the land. When occupier is set too, the province is drawn
     # hatched: owned by one delegate, held by another's troops.
     controller_id: Mapped[int | None] = mapped_column(
