@@ -51,7 +51,7 @@ describe("map geometry", () => {
       "Hong Kong": "L",
       Macau: "P",
       Guangzhouwan: "G",
-      Qingdao: "G",
+      Tsingtao: "G",
       Dairen: "J",
     });
   });

@@ -381,7 +381,7 @@ export function WarMapPage() {
           ) : null}
 
           {delegate ? (
-            <div className="absolute right-4 bottom-7 z-10">
+            <div className="pointer-events-none absolute top-4 right-4 bottom-7 z-10 flex flex-col justify-end">
               <MapLegend state={state} overlay={shownOverlay} floating showScores={display.scores} />
             </div>
           ) : (
@@ -705,7 +705,7 @@ function MapLegend({
   showScores?: boolean;
 }) {
   const effMax = maxRating(useFormula());
-  const box = floating ? "bg-background rounded-lg px-3.5 py-3 shadow-md" : "";
+  const box = floating ? "bg-background pointer-events-auto rounded-lg px-3.5 py-3 shadow-md" : "";
   if (overlay === "control") {
     const holdings = holdingsByDelegate(state.provinces);
     const shown = state.delegates.filter((d) => holdings.has(d.id));
@@ -715,13 +715,15 @@ function MapLegend({
       );
     }
     return (
-      <div className={cn(floating ? "w-60" : "w-full", box)}>
+      // Floating, it's two columns that scroll if they still outgrow the map,
+      // so no row is ever cut off.
+      <div className={cn(floating ? "max-h-full w-[23rem] overflow-y-auto" : "w-full", box)}>
         {floating ? (
           <p className="mb-2 text-sm font-semibold">{showScores ? "Efficiency" : "Control"}</p>
         ) : null}
-        <ul className={cn("grid gap-x-4 gap-y-2", !floating && "grid-cols-2")}>
+        <ul className={cn("grid grid-cols-2 gap-x-4", floating ? "gap-y-1" : "gap-y-2")}>
           {shown.map((d) => (
-            <li key={d.id} className="flex items-center gap-2 text-sm">
+            <li key={d.id} className={cn("flex items-center gap-2", floating ? "text-xs" : "text-sm")}>
               <span
                 className="size-3 shrink-0 rounded-full"
                 style={{ background: factionColor(d) }}

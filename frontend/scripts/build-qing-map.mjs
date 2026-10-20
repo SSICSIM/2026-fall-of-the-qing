@@ -14,6 +14,10 @@
 // Modern provincial borders are merged/clipped to approximate the late-Qing
 // layout (Zhili, Rehe, Fengtian, Outer Mongolia, …). It is a committee map,
 // not a survey — crisis staff can redraw borders in the app.
+//
+// Then redraw the internal borders from the guides' reference map:
+//
+//   python3 scripts/trace-reference-borders.py
 
 import fs from "node:fs";
 import path from "node:path";
@@ -169,27 +173,23 @@ const provinces = provinceFeatures.map((f) => ({
   label: labelPoint(f),
 }));
 
-// Neighbouring lands, renamed for the 1910s setting.
+// Neighbouring lands, named and placed as on the guides' reference map (in
+// map units, read off that image rather than projected from lon/lat). The
+// reference map has no sea labels.
 const FOREIGN_LABELS = [
-  { name: "Russian Republic", lonlat: [98, 54.5] },
-  { name: "Turkestan", lonlat: [70.5, 44] },
-  { name: "Dominion of India", lonlat: [77, 26] },
-  { name: "Nepal", lonlat: [83.5, 28.3] },
-  { name: "Bhutan", lonlat: [90.4, 27.4] },
-  { name: "Burma", lonlat: [96, 21] },
-  { name: "Siam", lonlat: [101, 16.5] },
-  { name: "French Indochina", lonlat: [106.2, 17.8] },
-  { name: "Empire of Japan", lonlat: [131.5, 37.5] },
-  { name: "Korea", lonlat: [127.4, 39.6] },
+  { name: "Russian Republic", at: [507, 41] },
+  { name: "Turkestan", at: [85, 216] },
+  { name: "Dominion of India", at: [62, 433] },
+  { name: "Nepal", at: [175, 537] },
+  { name: "Bhutan", at: [285, 575] },
+  { name: "Bharatiya People's Republic", at: [207, 625] },
+  { name: "Burma", at: [382, 673] },
+  { name: "German East Asia", at: [505, 725] },
+  { name: "Siam", at: [425, 740] },
+  { name: "Empire of Japan", at: [923, 414] },
 ];
 
-const SEA_LABELS = [
-  { name: "Yellow Sea", lonlat: [123.2, 35.2] },
-  { name: "East China Sea", lonlat: [125.5, 29.5] },
-  { name: "South China Sea", lonlat: [114.5, 17.5] },
-  { name: "Bay of Bengal", lonlat: [88.5, 17] },
-  { name: "Sea of Japan", lonlat: [134.5, 41] },
-];
+const SEA_LABELS = [];
 
 const SKIP_COUNTRIES = new Set(["156", "496", "158"]); // China, Mongolia, Taiwan (drawn separately)
 const foreignLands = countries
@@ -239,6 +239,7 @@ const CITIES = [
   { name: "Guilin", lonlat: [110.29, 25.27] },
   { name: "Kunming", lonlat: [102.71, 25.04], capital: true },
   { name: "Guiyang", lonlat: [106.71, 26.58] },
+  { name: "Changde", lonlat: [111.7, 29.03] },
   { name: "Changsha", lonlat: [112.94, 28.23], capital: true },
   { name: "Wuchang", lonlat: [114.3, 30.55] },
   { name: "Nanchang", lonlat: [115.86, 28.68] },
@@ -248,16 +249,15 @@ const CITIES = [
   { name: "Xi'an", lonlat: [108.94, 34.34], capital: true },
   { name: "Yan'an", lonlat: [109.49, 36.6] },
   { name: "Taiyuan", lonlat: [112.55, 37.87] },
+  { name: "Zhengzhou", lonlat: [113.65, 34.76] },
   { name: "Kaifeng", lonlat: [114.31, 34.8] },
   { name: "Jinan", lonlat: [117.0, 36.67] },
-  { name: "Qingdao", lonlat: [120.38, 36.07], holder: "G" },
+  { name: "Tsingtao", lonlat: [120.38, 36.07], holder: "G" },
   { name: "Lanzhou", lonlat: [103.83, 36.06], capital: true },
   { name: "Xining", lonlat: [101.78, 36.62] },
   { name: "Lhasa", lonlat: [91.11, 29.65], capital: true },
   { name: "Dihua", lonlat: [87.62, 43.83], capital: true },
-  { name: "Kashgar", lonlat: [75.99, 39.47] },
-  { name: "Urga", lonlat: [106.91, 47.92], capital: true },
-  { name: "Kalgan", lonlat: [114.88, 40.82] },
+  { name: "Kuga", lonlat: [106.91, 47.92], capital: true },
   { name: "Chengde", lonlat: [117.96, 40.95] },
   { name: "Shenyang", lonlat: [123.43, 41.8], capital: true },
   { name: "Dairen", lonlat: [121.6, 38.91], holder: "J" },
@@ -273,7 +273,7 @@ const cities = CITIES.map((c) => ({
   at: project(c.lonlat),
   ...(c.holder ? { holder: c.holder } : {}),
 }));
-const foreignLabels = FOREIGN_LABELS.map((l) => ({ name: l.name, at: project(l.lonlat) }));
+const foreignLabels = FOREIGN_LABELS.map((l) => ({ name: l.name, at: l.at }));
 const seaLabels = SEA_LABELS.map((l) => ({ name: l.name, at: project(l.lonlat) }))
   .filter(({ at: [x, y] }) => x > 0 && y > 0 && x < WIDTH && y < HEIGHT);
 

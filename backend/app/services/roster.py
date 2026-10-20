@@ -27,17 +27,19 @@ from sqlalchemy.orm import Session
 from app.models.crisis_note import Character, Faction
 from app.services.provinces import ensure_provinces
 
-# Clique colours, sampled from the Character Guide legend.
-ZHILI = "#5f6378"
-GUOMINJUN = "#2d6240"
-MA_CLIQUE = "#67607f"
-XINJIANG = "#e6b754"
-MONGOLIA = "#6b8e2a"
-HUNAN = "#4f88e0"
-SICHUAN = "#9b7443"
-FEDERALIST = "#965a7c"
-FENGTIAN = "#c0721f"
-LEFT_KMT = "#dc2f1f"
+# Clique colours: the Character Guide legend's hues, pulled apart so
+# neighbouring cliques (Zhili and the Ma Clique especially) read as different
+# regions on the map.
+ZHILI = "#34508f"
+GUOMINJUN = "#2f7a46"
+MA_CLIQUE = "#9467c4"
+XINJIANG = "#e3b23c"
+MONGOLIA = "#93ae3a"
+HUNAN = "#3fa3d8"
+SICHUAN = "#9a6a3e"
+FEDERALIST = "#c65a86"
+FENGTIAN = "#e07a26"
+LEFT_KMT = "#d7362b"
 
 ZHILI_LAND = ("zhili", "henan", "hubei", "shaanxi")
 FENGTIAN_LAND = ("fengtian", "jilin", "heilongjiang", "rehe")
