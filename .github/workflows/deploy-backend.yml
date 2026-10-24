@@ -65,7 +65,15 @@ jobs:
         if: steps.secrets.outputs.ready == 'true'
         env:
           DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
-        run: alembic -c alembic.ini upgrade heads
+        # The Supabase session pooler is shared with every other mechanic, so
+        # it can be briefly full. Retry a few times before giving up.
+        run: |
+          for attempt in 1 2 3 4 5; do
+            alembic -c alembic.ini upgrade heads && exit 0
+            echo "::warning::Migration attempt $attempt failed; retrying in 20s"
+            sleep 20
+          done
+          exit 1
 
       - name: Trigger Render deploy
         if: steps.secrets.outputs.ready == 'true'

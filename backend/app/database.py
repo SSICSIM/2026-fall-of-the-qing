@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from sqlalchemy import create_engine, event
+from sqlalchemy.pool import NullPool
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 from app.config import settings
@@ -35,7 +36,12 @@ def pin_search_path(dbapi_conn, schema: str) -> None:
         )
 
 
-_engine_kwargs = {"pool_size": 2, "max_overflow": 3} if settings.db_schema else {}
+# In production every mechanic shares the admin portal's Supabase session
+# pooler, which only has 15 slots in total. A client-side pool would keep idle
+# connections parked in those slots (2 per mechanic adds up fast), starving the
+# other mechanics and the deploy workflow's migrations. NullPool hands each
+# connection back as soon as the request is done.
+_engine_kwargs = {"poolclass": NullPool} if settings.db_schema else {}
 engine = create_engine(settings.database_url, pool_pre_ping=True, **_engine_kwargs)
 
 if settings.db_schema:
