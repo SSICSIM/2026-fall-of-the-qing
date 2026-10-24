@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { factionColor, inkFor, rampColor, UNCLAIMED_FILL } from "@/lib/warRoom/colors";
 import { holderOf } from "@/lib/warRoom/control";
-import { formatRating, maxRating } from "@/lib/warRoom/efficiency";
+import { formatRating, maxRating, overallEfficiency } from "@/lib/warRoom/efficiency";
 import { useFormula } from "@/hooks/useWarRoom";
 import {
   clampViewBox,
@@ -91,11 +91,11 @@ type Drag =
 
 /** Value (0..1 for shading) and printed label for a province's holder. */
 /** What a province shows for an overlay; `effMax` is the formula's top rating. */
-function readout(overlay: Overlay, holder: DelegateResponse | null, effMax: number) {
+function readout(overlay: Overlay, holder: DelegateResponse | null, effMax: number, midpoint: number) {
   if (!holder) return null;
   if (overlay === "control" || overlay === "efficiency") {
-    const eff = holder.published_efficiency;
-    return eff == null ? null : { t: eff / effMax, text: formatRating(eff) };
+    const eff = overallEfficiency(holder, midpoint);
+    return { t: eff / effMax, text: formatRating(eff) };
   }
   const score = holder[overlay];
   return { t: score / 5, text: score.toFixed(1) };
@@ -126,7 +126,8 @@ export function QingMap({
   showScores = true,
 }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
-  const effMax = maxRating(useFormula());
+  const formula = useFormula();
+  const effMax = maxRating(formula);
   const [view, setView] = useState<ViewBox>(FULL);
   // Pointer capture retargets pointerup to the <svg>, so remember what the
   // press started on.
@@ -297,7 +298,7 @@ export function QingMap({
       const owner = p.controller_id != null ? delegates.get(p.controller_id) : null;
       return owner ? factionColor(owner) : UNCLAIMED_FILL;
     }
-    const r = readout(overlay, holderOf(p, delegates), effMax);
+    const r = readout(overlay, holderOf(p, delegates), effMax, formula.midpoint);
     return r ? rampColor(r.t) : UNCLAIMED_FILL;
   };
 
@@ -312,7 +313,7 @@ export function QingMap({
   };
   const territoryFill = (t: TerritoryResponse): string => {
     if (overlay !== "control") {
-      const r = readout(overlay, delegates.get(t.holder_id) ?? null, effMax);
+      const r = readout(overlay, delegates.get(t.holder_id) ?? null, effMax, formula.midpoint);
       return r ? rampColor(r.t) : UNCLAIMED_FILL;
     }
     if (t.status === "OCCUPIED") return `url(#terr-occ-${t.id})`;
@@ -512,7 +513,7 @@ export function QingMap({
             const size = style.size ?? 10;
             const p = provinceState.get(shape.id);
             const holder = p ? holderOf(p, delegates) : null;
-            const r = readout(overlay, holder, effMax);
+            const r = readout(overlay, holder, effMax, formula.midpoint);
             const fill = fillFor(shape.id);
             const ink = fill.startsWith("#") && overlay !== "control" ? inkFor(fill) : "#24180c";
             return (

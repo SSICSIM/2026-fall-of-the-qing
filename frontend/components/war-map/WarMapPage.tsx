@@ -24,7 +24,7 @@ import { Button } from "@/components/ui/button";
 import { useCreateTerritory, useFormula, useInvade, useMapState, useMoveCharacter } from "@/hooks/useWarRoom";
 import { factionColor, rampColor } from "@/lib/warRoom/colors";
 import { holdingsByDelegate } from "@/lib/warRoom/control";
-import { formatRating, maxRating } from "@/lib/warRoom/efficiency";
+import { formatRating, maxRating, overallEfficiency } from "@/lib/warRoom/efficiency";
 import type { Pt } from "@/lib/warRoom/geometry";
 import {
   dragHandle,
@@ -704,7 +704,8 @@ function MapLegend({
   floating?: boolean;
   showScores?: boolean;
 }) {
-  const effMax = maxRating(useFormula());
+  const formula = useFormula();
+  const effMax = maxRating(formula);
   const box = floating ? "bg-background pointer-events-auto rounded-lg px-3.5 py-3 shadow-md" : "";
   if (overlay === "control") {
     const holdings = holdingsByDelegate(state.provinces);
@@ -730,7 +731,7 @@ function MapLegend({
               />
               <span className="min-w-0 flex-1 truncate">{d.name}</span>
               {showScores ? (
-                <span className="font-medium tabular-nums">{formatRating(d.published_efficiency)}</span>
+                <span className="font-medium tabular-nums">{formatRating(overallEfficiency(d, formula.midpoint))}</span>
               ) : null}
             </li>
           ))}

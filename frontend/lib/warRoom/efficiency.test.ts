@@ -8,6 +8,7 @@ import {
   groupEfficiency,
   normalizeIndicators,
   maxRating,
+  overallEfficiency,
 } from "./efficiency";
 
 const s = (reputation: number, economics: number, military: number) => ({ reputation, economics, military });
@@ -112,5 +113,15 @@ describe("edited formula", () => {
   it("bands by the chosen thresholds", () => {
     expect(bandFor(1.19, bands).label).toBe("Setback");
     expect(bandFor(1.2, bands).label).toBe("Success");
+  });
+});
+
+describe("overallEfficiency", () => {
+  const scores = { reputation: 5, economics: 5, military: 5 };
+  it("uses the published rating when there is one", () => {
+    expect(overallEfficiency({ ...scores, published_efficiency: 0.7 })).toBe(0.7);
+  });
+  it("falls back to the live rating from all three scores", () => {
+    expect(overallEfficiency({ ...scores, published_efficiency: null })).toBeCloseTo(2);
   });
 });

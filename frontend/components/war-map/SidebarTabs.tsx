@@ -60,6 +60,7 @@ import {
   INDICATOR_LABELS,
   INDICATOR_SHORT,
   INDICATORS,
+  overallEfficiency,
 } from "@/lib/warRoom/efficiency";
 import { defaultPinSpot } from "@/lib/warRoom/pins";
 import { CITY_HOLDERS, mapProvinces, QING, type CityHolder } from "@/lib/warRoom/provinces";
@@ -300,11 +301,11 @@ function ProvincePanel({
   const redrawProvince = useRedrawProvince();
   const removeProvince = useRemoveProvince();
   const delegates = useMemo(() => new Map(state.delegates.map((d) => [d.id, d])), [state.delegates]);
-  const { bands } = useFormula();
+  const { bands, midpoint } = useFormula();
   const province = state.provinces.find((p) => p.id === provinceId);
   if (!province) return null;
   const holder = holderOf(province, delegates);
-  const band = holder?.published_efficiency != null ? bandFor(holder.published_efficiency, bands) : null;
+  const band = holder ? bandFor(overallEfficiency(holder, midpoint), bands) : null;
   const sharers = province.co_holder_ids.flatMap((id) => (delegates.has(id) ? [delegates.get(id)!] : []));
   const setSharers = (ids: number[]) => updateProvince.mutate({ id: province.id, body: { co_holder_ids: ids } });
 
@@ -333,7 +334,7 @@ function ProvincePanel({
             </div>
             <dl className="mt-3 grid grid-cols-4 gap-2 text-center">
               {[
-                ["Efficiency", formatRating(holder.published_efficiency)],
+                ["Efficiency", formatRating(overallEfficiency(holder, midpoint))],
                 ["Legit.", holder.reputation.toFixed(1)],
                 ["Econ.", holder.economics.toFixed(1)],
                 ["Military", holder.military.toFixed(1)],
@@ -660,6 +661,7 @@ function FactionRow({
 }) {
   const [open, setOpen] = useState(selected);
   const move = useMoveCharacter();
+  const { midpoint } = useFormula();
   useEffect(() => {
     if (selected) setOpen(true);
   }, [selected]);
@@ -688,7 +690,7 @@ function FactionRow({
                 {d.economics.toFixed(1)} · M {d.military.toFixed(1)}
               </div>
             </div>
-            <span className="text-sm font-semibold tabular-nums">{formatRating(d.published_efficiency)}</span>
+            <span className="text-sm font-semibold tabular-nums">{formatRating(overallEfficiency(d, midpoint))}</span>
             <ChevronRightIcon className={cn("text-muted-foreground size-4 transition-transform", open && "rotate-90")} />
           </button>
         </CollapsibleTrigger>
