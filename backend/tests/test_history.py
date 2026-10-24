@@ -58,3 +58,16 @@ def test_history_records_attribution(client, delegates, directive):
         "old_value": 3.0,
         "new_value": 1.0,
     }
+
+
+def test_score_edit_clears_published_rating(client, delegates):
+    yuan, other = delegates[0], delegates[1]
+    client.post("/api/calculator/publish", json={"character_ids": [yuan.id, other.id]})
+    assert scores_of(client, yuan.id)["published_efficiency"] is not None
+
+    client.patch("/api/delegates/scores", json={"updates": [{"character_id": yuan.id, "military": 1}]})
+    assert scores_of(client, yuan.id)["published_efficiency"] is None
+    assert scores_of(client, other.id)["published_efficiency"] is not None
+
+    client.post("/api/history/undo")
+    assert scores_of(client, yuan.id)["published_efficiency"] is not None

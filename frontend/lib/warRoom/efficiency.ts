@@ -84,6 +84,14 @@ export function groupEfficiency(delegates: Scores[], indicators?: Indicator[], m
   return ratings.reduce((a, b) => a + b, 0) / ratings.length;
 }
 
+/** A delegate's overall efficiency: the published rating, else the live one from their scores. */
+export function overallEfficiency(
+  d: Scores & { published_efficiency: number | null },
+  midpoint = MIDPOINT,
+): number {
+  return d.published_efficiency ?? delegateEfficiency(d, INDICATORS, midpoint);
+}
+
 /** The highest rating the formula can give (every score at 5). */
 export const maxRating = (formula: Formula) => SCORE_MAX / formula.midpoint;
 

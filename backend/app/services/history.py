@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.models.crisis_note import Character
 from app.models.war_room import HistoryBatch, HistoryEntry, HistoryKind, Province, Territory
+from app.services.efficiency import INDICATORS
 
 _TARGETS: dict[str, type] = {
     "character": Character,
@@ -50,6 +51,10 @@ class Recorder:
             )
         )
         setattr(target, field, value)
+        # A published rating is a group average; once a delegate's own scores
+        # move, the map goes back to their live efficiency.
+        if isinstance(target, Character) and field in INDICATORS:
+            self.set(target, "published_efficiency", None)
 
     @property
     def changed(self) -> bool:
